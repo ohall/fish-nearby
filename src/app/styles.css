@@ -1,0 +1,113 @@
+:root {
+  color-scheme: light dark;
+  --background: #f3f7f4;
+  --foreground: #10251f;
+  --muted: #4e625c;
+  --surface: rgba(255, 255, 255, 0.78);
+  --border: rgba(16, 37, 31, 0.14);
+  --accent: #167b64;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(74, 173, 142, 0.18),
+      transparent 34rem
+    ),
+    var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem 1.25rem;
+}
+
+.intro {
+  width: min(100%, 42rem);
+  padding: clamp(1.5rem, 5vw, 3.5rem);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 1.5rem 4rem rgba(16, 37, 31, 0.09);
+  backdrop-filter: blur(1rem);
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.5rem, 10vw, 5rem);
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.lede {
+  max-width: 34rem;
+  margin: 1.5rem 0 2rem;
+  color: var(--muted);
+  font-size: clamp(1rem, 3vw, 1.2rem);
+  line-height: 1.6;
+}
+
+.status {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.statusDot {
+  flex: 0 0 auto;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c1714;
+    --foreground: #e9f2ee;
+    --muted: #a7bab3;
+    --surface: rgba(17, 35, 30, 0.82);
+    --border: rgba(233, 242, 238, 0.13);
+    --accent: #5bd1ae;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

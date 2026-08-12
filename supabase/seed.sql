@@ -1,0 +1,1 @@
+-- Seed data will be introduced with the Phase 1 storage model.

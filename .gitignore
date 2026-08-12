@@ -9,6 +9,10 @@ out/
 .DS_Store
 *.pem
 npm-debug.log*
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
 
 # env files
 .env
