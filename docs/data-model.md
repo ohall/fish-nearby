@@ -2,6 +2,12 @@
 
 Proposed schema for the MVP. PostgreSQL + PostGIS, migrated via Drizzle.
 
+> **Draft:** Do not migrate this SQL verbatim. Phase 1 of the
+> [implementation plan](implementation-plan.md)
+> lists required changes to ingestion-run tracking, source identity mapping,
+> evidence dates/review audit, raw-import uniqueness, API privacy, and the
+> spatial index before the first migration is created.
+
 Pipeline shape: **source → raw_import → inference → water_body / species → water_body_species**.
 
 ```text
@@ -27,7 +33,10 @@ create type water_body_type as enum
 -- keep semantics explicit per data-sources-ny-nj.md
 create type evidence_type as enum
   ('agency_recommended_presence', 'agency_listed_presence',
-   'stocking', 'survey', 'report', 'inferred_from_document');
+   'stocking', 'survey', 'report');
+
+create type extraction_method as enum
+  ('structured_source', 'deterministic_document', 'llm_document');
 
 create type review_state as enum ('accepted', 'review', 'rejected');
 
@@ -53,11 +62,11 @@ create table source (
 create table raw_import (
   id           uuid primary key default gen_random_uuid(),
   source_id    uuid not null references source(id),
-  external_id  text,                             -- upstream record ID (e.g. ArcGIS ID)
+  external_id  text not null,                    -- stable upstream record/artifact key
   fetched_at   timestamptz not null default now(),
   content_hash text not null,                    -- sha256 of canonical payload
   payload      jsonb not null,
-  unique (source_id, content_hash)               -- content-addressed → idempotent ingest
+  unique (source_id, external_id, content_hash)  -- changed versions remain replayable
 );
 
 -- LLM cache / audit (todos 12, 26) -------------------------------------------
@@ -90,7 +99,7 @@ create table water_body (
   updated_at   timestamptz not null default now()
 );
 
-create index water_body_geom_gist on water_body using gist (geom);          -- todo 16
+create index water_body_geog_gist on water_body using gist ((geom::geography)); -- todo 16
 create index water_body_state_name_idx on water_body (state, lower(name));  -- candidate generation (todo 25)
 
 -- Canonical species (todo 08) ------------------------------------------------
@@ -117,6 +126,7 @@ create table water_body_species (
   raw_import_id    uuid references raw_import(id),  -- provenance back to raw payload
   inference_id     uuid references inference(id),   -- provenance back to LLM output, when used
   evidence_type    evidence_type not null,
+  extraction_method extraction_method not null,
   observed_at      date,                            -- stocking/survey date; null for presence lists
   confidence_score numeric check (confidence_score between 0 and 1),
   confidence_tier  confidence_tier not null,        -- what the API exposes
@@ -137,11 +147,11 @@ create index wbs_water_idx on water_body_species (water_body_id) where review_st
 
 1. **Evidence, not presence.** `water_body_species` rows are dated claims with provenance. A 2019 stocking and a 2025 survey coexist as separate rows; the API aggregates them into one species list with the best tier (todo 15). This implements "keep stocking separate from surveys/presence lists" (todo 09).
 2. **Full provenance chain.** Every normalized row traces back: `water_body_species → raw_import → source`, and `→ inference` when the LLM was involved. Failed or improved normalization stays replayable (todo 11), and the inference cache controls repeat-normalization cost (see deployment.md).
-3. **Idempotency via constraints, not code.** `unique(source_id, content_hash)` on `raw_import` and the dedupe index on `water_body_species` let ingestion blindly `insert ... on conflict do nothing` (todo 21).
+3. **Idempotency via constraints, not code.** `unique(source_id, external_id, content_hash)` on `raw_import` and the evidence dedupe index let ingestion safely upsert a stable source record while preserving changed versions (todo 21). Phase 1 must extend the evidence key as described in the implementation plan so independent source records are not collapsed.
 4. **Deterministic confidence.** `confidence_tier` is computed by rules (source quality + match type, todo 28), stored so API reads are plain queries, and `review_state` gates what the public API returns.
-5. **Point geometry for MVP.** Per todo 07 ("start with point geometry if necessary"), `geometry(Point, 4326)` keeps the nearby query (`ST_DWithin` over the GiST index) trivial. Polygons from the NJ layers can be added later as a nullable `geom_poly geometry(MultiPolygon, 4326)` without breaking anything.
+5. **Point geometry for MVP.** Per todo 07 ("start with point geometry if necessary"), `geometry(Point, 4326)` keeps the nearby query (`ST_DWithin` over the matching geography-expression GiST index) trivial. Polygons from the NJ layers can be added later as a nullable `geom_poly geometry(MultiPolygon, 4326)` without breaking anything.
 
 ## Serving the API
 
-- `GET /waters?lat=&lng=&radius=` → `ST_DWithin(geom::geography, ST_MakePoint(:lng, :lat)::geography, :radius)` over `water_body_geom_gist` (todos 13, 16).
-- `GET /waters/:id` → water body plus its `accepted` `water_body_species` rows joined to `species` and `source`, returning `confidence_tier`, `evidence_type`, `observed_at`, and source name/URL per the DTO contract (todos 14, 15).
+- `POST /api/waters/search` with a validated JSON coordinate/radius body → `ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)` over `water_body_geog_gist` (todos 13, 16). Coordinates are redacted from logs and telemetry.
+- `GET /api/waters/:id` → water body plus its `accepted` `water_body_species` rows joined to `species` and `source`, returning `confidence_tier`, `evidence_type`, `observed_at`, and source name/URL per the DTO contract (todos 14, 15).

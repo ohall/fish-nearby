@@ -2,7 +2,8 @@
 
 A mobile-friendly web app for answering:
 
-> What fish species are present in the water bodies near me?
+> What public evidence shows which fish species are associated with water bodies
+> near me?
 
 ## MVP
 
@@ -11,11 +12,12 @@ A mobile-friendly web app for answering:
 - Species per water body
 - Public-source provenance
 - PostgreSQL/PostGIS
-- Normalization pipeline
-- OpenRouter-assisted extraction/entity normalization
+- Deterministic normalization pipeline
+- Bounded OpenRouter fallback for ambiguous records
 
 ## Docs
 
+- [Implementation plan](docs/implementation-plan.md)
 - [TODO / build plan](TODO.md)
 - [Implementation guide](docs/README.md)
 - [Data model](docs/data-model.md)

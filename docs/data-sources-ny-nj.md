@@ -155,4 +155,8 @@ Keep the semantics explicit:
 - `stocking`
 - `survey`
 - `report`
-- `inferred_from_document`
+
+Record document inference through an extraction method such as `llm_document`,
+not as an evidence type. The evidence type must retain what the underlying
+document claims (for example, `stocking`, `survey`, or `report`) regardless of
+whether code or an LLM extracts it.

@@ -1,4 +1,4 @@
-# `GET /waters/:id`
+# `GET /api/waters/:id`
 
 ## Technology
 

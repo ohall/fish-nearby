@@ -1,6 +1,7 @@
 # TODO
 
-Each item links to its implementation page.
+Follow the [phased implementation plan](docs/implementation-plan.md) for delivery
+order and measurable release gates. Each item below links to its design note.
 
 ## Bootstrap
 - [ ] [Create Next.js + TypeScript app](docs/todos/01-create-next-js-typescript-app.md)
@@ -19,8 +20,8 @@ Each item links to its implementation page.
 - [ ] [`inference` table with model, prompt version, input hash, and output](docs/todos/12-inference-table-with-model-prompt-version-input-hash-and-output.md)
 
 ## API
-- [ ] [`GET /waters?lat=&lng=&radius=`](docs/todos/13-get-waters-lat-lng-radius.md)
-- [ ] [`GET /waters/:id`](docs/todos/14-get-waters-id.md)
+- [ ] [`POST /api/waters/search`](docs/todos/13-get-waters-lat-lng-radius.md)
+- [ ] [`GET /api/waters/:id`](docs/todos/14-get-waters-id.md)
 - [ ] [Return species, confidence, and source metadata](docs/todos/15-return-species-confidence-and-source-metadata.md)
 - [ ] [Add PostGIS spatial index](docs/todos/16-add-postgis-spatial-index.md)
 

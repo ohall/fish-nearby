@@ -1,6 +1,7 @@
 # Implementation Guide
 
-One page per MVP todo item.
+Start with the [phased implementation plan](implementation-plan.md). The pages
+below provide one design note per MVP todo item.
 
 ## Bootstrap
 - [Create Next.js + TypeScript app](todos/01-create-next-js-typescript-app.md)
@@ -19,8 +20,8 @@ One page per MVP todo item.
 - [`inference` table with model, prompt version, input hash, and output](todos/12-inference-table-with-model-prompt-version-input-hash-and-output.md)
 
 ## API
-- [`GET /waters?lat=&lng=&radius=`](todos/13-get-waters-lat-lng-radius.md)
-- [`GET /waters/:id`](todos/14-get-waters-id.md)
+- [`POST /api/waters/search`](todos/13-get-waters-lat-lng-radius.md)
+- [`GET /api/waters/:id`](todos/14-get-waters-id.md)
 - [Return species, confidence, and source metadata](todos/15-return-species-confidence-and-source-metadata.md)
 - [Add PostGIS spatial index](todos/16-add-postgis-spatial-index.md)
 
@@ -53,4 +54,3 @@ One page per MVP todo item.
 - [Verify species results manually](todos/36-verify-species-results-manually.md)
 - [Fix entity-resolution edge cases](todos/37-fix-entity-resolution-edge-cases.md)
 - [Expand to all NJ once the pipeline works](todos/38-expand-to-all-nj-once-the-pipeline-works.md)
-
