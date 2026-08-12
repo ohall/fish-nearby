@@ -31,7 +31,7 @@ export class InvalidServerEnvironmentError extends Error {
 }
 
 export function parseServerEnvironment(
-  environment: NodeJS.ProcessEnv,
+  environment: Readonly<Record<string, string | undefined>>,
 ): ServerEnvironment {
   const result = serverEnvironmentSchema.safeParse(environment);
 

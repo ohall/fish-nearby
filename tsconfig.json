@@ -14,7 +14,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
       "@/*": ["./src/*"]
     }
@@ -24,7 +28,8 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    "**/*.mts"
+    "**/*.mts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }
