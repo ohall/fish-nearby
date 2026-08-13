@@ -40,12 +40,15 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - name: Apply migrations and test PostGIS
+      - name: Apply migrations, seed, and test PostGIS schema
         env:
           PGPASSWORD: postgres
         run: |
           psql "$DIRECT_DATABASE_URL" -f supabase/migrations/20260812000000_enable_postgis.sql
+          psql "$DIRECT_DATABASE_URL" -f supabase/migrations/20260813000000_core_schema.sql
+          psql "$DIRECT_DATABASE_URL" -f supabase/seed.sql
           psql "$DIRECT_DATABASE_URL" -f tests/integration/postgis.sql
+          psql "$DIRECT_DATABASE_URL" -f tests/integration/core-schema.sql
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

@@ -1,5 +1,11 @@
+import "server-only";
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+
+import * as schema from "./schema";
+
+export type QueryClient = ReturnType<typeof postgres>;
 
 export function createDatabaseClient(databaseUrl: string) {
   const queryClient = postgres(databaseUrl, {
@@ -10,7 +16,8 @@ export function createDatabaseClient(databaseUrl: string) {
   });
 
   return {
-    database: drizzle(queryClient),
+    database: drizzle(queryClient, { schema }),
+    queryClient,
     close: () => queryClient.end(),
   };
 }
