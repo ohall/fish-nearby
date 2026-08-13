@@ -75,7 +75,7 @@ create table inference (
   id                uuid primary key default gen_random_uuid(),
   raw_import_id     uuid references raw_import(id),
   task              text not null,               -- 'extract_water_body' | 'normalize_species' | 'resolve_water_body'
-  model             text not null,               -- e.g. 'openai/gpt-4o-mini'
+  model             text not null,               -- e.g. 'deepseek/deepseek-v4-flash-0731'
   prompt_version    text not null,
   input_hash        text not null,
   output            jsonb,

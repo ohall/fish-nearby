@@ -573,7 +573,8 @@ Resolve these during Phase 0; they should not block repository scaffolding:
    publication date but no observation date.
 5. Pilot launch availability/SLO target and operational owner.
 
-OpenRouter model selection is intentionally deferred until the deterministic
-pilot exposes real unresolved examples. Choose and pin it with a prompt version,
+OpenRouter inference is pinned to **`deepseek/deepseek-v4-flash-0731`** as the
+default model. Before writing it to production, verify it with a prompt version,
 fixture evaluation, structured-output support, latency/cost measurements, and a
-documented fallback—not by general model preference.
+documented fallback—not by general model preference. Re-evaluate after the
+deterministic pilot exposes real unresolved examples.
