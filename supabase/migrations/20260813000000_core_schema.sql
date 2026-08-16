@@ -165,8 +165,8 @@ create table public.species (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (normalized_common_name),
-  unique nulls not distinct (scientific_name),
-  unique nulls not distinct (taxonomy_key)
+  unique (scientific_name),
+  unique (taxonomy_key)
 );
 
 create table public.species_alias (
