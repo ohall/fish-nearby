@@ -1,157 +1,116 @@
-# Data Model
+# Data model
 
-Proposed schema for the MVP. PostgreSQL + PostGIS, migrated via Drizzle.
+The Phase 1 PostgreSQL/PostGIS model is implemented by
+[`20260813000000_core_schema.sql`](../supabase/migrations/20260813000000_core_schema.sql).
+That migration is the schema source of truth; the matching Drizzle declarations
+live in [`src/server/db/schema.ts`](../src/server/db/schema.ts).
 
-> **Draft:** Do not migrate this SQL verbatim. Phase 1 of the
-> [implementation plan](implementation-plan.md)
-> lists required changes to ingestion-run tracking, source identity mapping,
-> evidence dates/review audit, raw-import uniqueness, API privacy, and the
-> spatial index before the first migration is created.
-
-Pipeline shape: **source → raw_import → inference → water_body / species → water_body_species**.
+## Pipeline and lineage
 
 ```text
-source ──< raw_import ──< inference
-  │              │
-  │              │ (normalized into)
-  │              ▼
-  │        water_body ──< water_body_species >── species ──< species_alias
-  └──────────────────────────^
-app_user (reviewers/admins only, see auth.md)
+source ──< ingestion_run ──< raw_import ──< inference
+  │                 │             │
+  │                 │             └──────────────┐
+  │                 │                            │
+  │                 └──< water_body_source >── water_body
+  │                                              │
+  └──< water_body_species >── species            │
+             │                 └──< species_alias│
+             ├──< review_decision                │
+             └───────────────────────────────────┘
 ```
 
-## Schema
+- `source` registers an upstream dataset and points to its current published
+  run.
+- `ingestion_run` distinguishes full and incremental snapshots and records
+  lifecycle state, watermark, version, and processing counts.
+- `raw_import` is an append-only record of the original JSON. Its identity is
+  source + stable artifact key + canonical SHA-256 hash, so changed versions are
+  replayable without collapsing distinct upstream records.
+- `water_body_source` maps a stable upstream identity to a canonical water body
+  and records raw/run lineage, confidence, review state, and retirement.
+- `water_body` stores the MVP representative point as `geometry(Point, 4326)`.
+- `species` and `species_alias` provide source-neutral fish identities and
+  source-scoped aliases where needed.
+- `water_body_species` is an evidence ledger, not a deduplicated presence join.
+  Every row has a stable source evidence key, claim type, extraction method,
+  confidence tier, review state, dates, raw lineage, run lineage, and retirement
+  state.
+- `inference` is an append-only cache and audit record keyed by task, provider,
+  model, prompt version, and canonical input hash.
+- `review_decision` is an append-only transition log naming its rule,
+  correction, or reviewer actor.
+
+## Public boundary
+
+The application read role has access only to two projections:
+
+- `public_water_body` includes canonical waters with an active, accepted source
+  mapping.
+- `public_water_body_evidence` includes active, accepted evidence with only the
+  species, source, dates, claim type, and confidence fields safe for anonymous
+  responses.
+
+The read role cannot select base tables or write data. It therefore cannot see
+raw payloads, inference records, ingestion internals, review history, or
+retired/rejected evidence. The job role receives the minimum base-table grants
+needed for ingestion; append-only tables have no update/delete grant and also
+reject mutation with database triggers.
+
+Row-level security is enabled on every base table as defense in depth. The
+server uses the narrow public views through a dedicated data-access layer; the
+browser never queries Supabase tables directly.
+
+## Spatial query
+
+Nearby reads consistently cast the stored point to geography so radii and
+distances are measured in meters:
 
 ```sql
-create extension if not exists postgis;
-
--- Enums ---------------------------------------------------------------------
-
-create type water_body_type as enum
-  ('lake', 'pond', 'reservoir', 'river', 'stream', 'unknown');
-
--- keep semantics explicit per data-sources-ny-nj.md
-create type evidence_type as enum
-  ('agency_recommended_presence', 'agency_listed_presence',
-   'stocking', 'survey', 'report');
-
-create type extraction_method as enum
-  ('structured_source', 'deterministic_document', 'llm_document');
-
-create type review_state as enum ('accepted', 'review', 'rejected');
-
-create type confidence_tier as enum ('high', 'medium', 'low');
-
--- Source registry (todo 10) --------------------------------------------------
-
-create table source (
-  id              uuid primary key default gen_random_uuid(),
-  name            text not null,
-  agency          text not null,                 -- e.g. 'NJ Fish & Wildlife'
-  state           char(2) not null,              -- 'NJ' | 'NY'
-  url             text not null,
-  source_type     text not null,                 -- 'arcgis' | 'socrata' | 'pdf' | 'web'
-  refresh_cadence text,                          -- e.g. 'monthly', 'annual'
-  license_notes   text,
-  quality_weight  numeric,                       -- only if ranking needs it later
-  created_at      timestamptz not null default now()
-);
-
--- Immutable raw artifacts (todos 11, 19, 20) ---------------------------------
-
-create table raw_import (
-  id           uuid primary key default gen_random_uuid(),
-  source_id    uuid not null references source(id),
-  external_id  text not null,                    -- stable upstream record/artifact key
-  fetched_at   timestamptz not null default now(),
-  content_hash text not null,                    -- sha256 of canonical payload
-  payload      jsonb not null,
-  unique (source_id, external_id, content_hash)  -- changed versions remain replayable
-);
-
--- LLM cache / audit (todos 12, 26) -------------------------------------------
-
-create table inference (
-  id                uuid primary key default gen_random_uuid(),
-  raw_import_id     uuid references raw_import(id),
-  task              text not null,               -- 'extract_water_body' | 'normalize_species' | 'resolve_water_body'
-  model             text not null,               -- e.g. 'deepseek/deepseek-v4-flash-0731'
-  prompt_version    text not null,
-  input_hash        text not null,
-  output            jsonb,
-  validation_status text not null default 'pending'
-                    check (validation_status in ('pending', 'valid', 'invalid')),
-  created_at        timestamptz not null default now(),
-  unique (task, model, prompt_version, input_hash)  -- cache key; never overwrite
-);
-
--- Canonical water bodies (todo 07) -------------------------------------------
-
-create table water_body (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  type         water_body_type not null default 'unknown',
-  state        char(2) not null,
-  county       text,
-  geom         geometry(Point, 4326) not null,   -- MVP: point; upgrade to MultiPolygon later
-  external_ids jsonb not null default '{}',      -- {"nj_gfch": "123", "ny_socrata": "..."}
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
-);
-
-create index water_body_geog_gist on water_body using gist ((geom::geography)); -- todo 16
-create index water_body_state_name_idx on water_body (state, lower(name));  -- candidate generation (todo 25)
-
--- Canonical species (todo 08) ------------------------------------------------
-
-create table species (
-  id              uuid primary key default gen_random_uuid(),
-  common_name     text not null unique,          -- 'Largemouth Bass'
-  scientific_name text unique                    -- 'Micropterus salmoides'
-);
-
-create table species_alias (
-  id         uuid primary key default gen_random_uuid(),
-  species_id uuid not null references species(id),
-  alias      text not null unique                -- 'LMB', 'large mouth bass', ...
-);
-
--- Evidence join (todos 09, 15, 28) -------------------------------------------
-
-create table water_body_species (
-  id               uuid primary key default gen_random_uuid(),
-  water_body_id    uuid not null references water_body(id),
-  species_id       uuid not null references species(id),
-  source_id        uuid not null references source(id),
-  raw_import_id    uuid references raw_import(id),  -- provenance back to raw payload
-  inference_id     uuid references inference(id),   -- provenance back to LLM output, when used
-  evidence_type    evidence_type not null,
-  extraction_method extraction_method not null,
-  observed_at      date,                            -- stocking/survey date; null for presence lists
-  confidence_score numeric check (confidence_score between 0 and 1),
-  confidence_tier  confidence_tier not null,        -- what the API exposes
-  review_state     review_state not null default 'review',
-  created_at       timestamptz not null default now()
-);
-
--- multiple evidence rows allowed, but no duplicates (treats null observed_at as equal)
-create unique index water_body_species_dedupe on water_body_species
-  (water_body_id, species_id, source_id, evidence_type, coalesce(observed_at, date '0001-01-01'));
-
-create index wbs_water_idx on water_body_species (water_body_id) where review_state = 'accepted';
+extensions.st_dwithin(
+  geom::extensions.geography,
+  extensions.st_setsrid(
+    extensions.st_makepoint(:longitude, :latitude),
+    4326
+  )::extensions.geography,
+  :radius_meters
+)
 ```
 
-`app_user` stays as defined in [auth.md](auth.md). Reviewers mutate `review_state`; the anonymous role reads only `accepted` rows (enforced via RLS).
+`water_body_geography_gist` indexes that exact `geom::geography` expression.
+The integration suite runs the public-view query through `EXPLAIN (FORMAT JSON)`
+and fails unless PostgreSQL selects that index.
 
-## Design decisions
+## Evidence semantics
 
-1. **Evidence, not presence.** `water_body_species` rows are dated claims with provenance. A 2019 stocking and a 2025 survey coexist as separate rows; the API aggregates them into one species list with the best tier (todo 15). This implements "keep stocking separate from surveys/presence lists" (todo 09).
-2. **Full provenance chain.** Every normalized row traces back: `water_body_species → raw_import → source`, and `→ inference` when the LLM was involved. Failed or improved normalization stays replayable (todo 11), and the inference cache controls repeat-normalization cost (see deployment.md).
-3. **Idempotency via constraints, not code.** `unique(source_id, external_id, content_hash)` on `raw_import` and the evidence dedupe index let ingestion safely upsert a stable source record while preserving changed versions (todo 21). Phase 1 must extend the evidence key as described in the implementation plan so independent source records are not collapsed.
-4. **Deterministic confidence.** `confidence_tier` is computed by rules (source quality + match type, todo 28), stored so API reads are plain queries, and `review_state` gates what the public API returns.
-5. **Point geometry for MVP.** Per todo 07 ("start with point geometry if necessary"), `geometry(Point, 4326)` keeps the nearby query (`ST_DWithin` over the matching geography-expression GiST index) trivial. Polygons from the NJ layers can be added later as a nullable `geom_poly geometry(MultiPolygon, 4326)` without breaking anything.
+Evidence types describe what the source claims:
 
-## Serving the API
+- `agency_recommended_presence`
+- `agency_listed_presence`
+- `stocking`
+- `survey`
+- `report`
 
-- `POST /api/waters/search` with a validated JSON coordinate/radius body → `ST_DWithin(geom::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)` over `water_body_geog_gist` (todos 13, 16). Coordinates are redacted from logs and telemetry.
-- `GET /api/waters/:id` → water body plus its `accepted` `water_body_species` rows joined to `species` and `source`, returning `confidence_tier`, `evidence_type`, `observed_at`, and source name/URL per the DTO contract (todos 14, 15).
+Extraction methods separately describe how the claim was obtained:
+
+- `structured_source`
+- `deterministic_document`
+- `llm_document`
+
+Confidence (`high`, `medium`, `low`) describes the quality of entity mapping,
+not the probability of finding or catching a fish. Only `accepted` evidence is
+public; `review` and `rejected` records remain internal.
+
+## Verification
+
+[`core-schema.sql`](../tests/integration/core-schema.sql) verifies the fresh
+migration and seed against PostgreSQL 17/PostGIS, including:
+
+- role grants and private base tables;
+- accepted-only public projections;
+- content-addressed uniqueness and append-only enforcement;
+- coordinate/SRID constraints and meter-based distance behavior; and
+- index selection for the nearby query expression.
+
+CI applies migrations in order, seeds the pilot source/species set, and runs
+both database integration scripts before building the app.

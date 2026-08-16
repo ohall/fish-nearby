@@ -4,26 +4,26 @@ Follow the [phased implementation plan](docs/implementation-plan.md) for deliver
 order and measurable release gates. Each item below links to its design note.
 
 ## Bootstrap
-- [ ] [Create Next.js + TypeScript app](docs/todos/01-create-next-js-typescript-app.md)
+- [x] [Create Next.js + TypeScript app](docs/todos/01-create-next-js-typescript-app.md)
 - [ ] [Add MapLibre map](docs/todos/02-add-maplibre-map.md)
 - [ ] [Add mobile geolocation](docs/todos/03-add-mobile-geolocation.md)
 - [ ] [Add location search](docs/todos/04-add-location-search.md)
-- [ ] [Provision PostgreSQL with PostGIS](docs/todos/05-provision-postgresql-with-postgis.md)
-- [ ] [Add DB migrations / ORM](docs/todos/06-add-db-migrations-orm.md)
+- [x] [Provision PostgreSQL with PostGIS](docs/todos/05-provision-postgresql-with-postgis.md)
+- [x] [Add DB migrations / ORM](docs/todos/06-add-db-migrations-orm.md)
 
 ## Core data model
-- [ ] [`water_body` table with name, type, state, geometry](docs/todos/07-water-body-table-with-name-type-state-geometry.md)
-- [ ] [`species` canonical taxonomy table](docs/todos/08-species-canonical-taxonomy-table.md)
-- [ ] [`water_body_species` relationship with provenance and confidence](docs/todos/09-water-body-species-relationship-with-provenance-and-confidence.md)
-- [ ] [`source` table](docs/todos/10-source-table.md)
-- [ ] [`raw_import` table for original source payloads](docs/todos/11-raw-import-table-for-original-source-payloads.md)
-- [ ] [`inference` table with model, prompt version, input hash, and output](docs/todos/12-inference-table-with-model-prompt-version-input-hash-and-output.md)
+- [x] [`water_body` table with name, type, state, geometry](docs/todos/07-water-body-table-with-name-type-state-geometry.md)
+- [x] [`species` canonical taxonomy table](docs/todos/08-species-canonical-taxonomy-table.md)
+- [x] [`water_body_species` relationship with provenance and confidence](docs/todos/09-water-body-species-relationship-with-provenance-and-confidence.md)
+- [x] [`source` table](docs/todos/10-source-table.md)
+- [x] [`raw_import` table for original source payloads](docs/todos/11-raw-import-table-for-original-source-payloads.md)
+- [x] [`inference` table with model, prompt version, input hash, and output](docs/todos/12-inference-table-with-model-prompt-version-input-hash-and-output.md)
 
 ## API
 - [ ] [`POST /api/waters/search`](docs/todos/13-get-waters-lat-lng-radius.md)
 - [ ] [`GET /api/waters/:id`](docs/todos/14-get-waters-id.md)
-- [ ] [Return species, confidence, and source metadata](docs/todos/15-return-species-confidence-and-source-metadata.md)
-- [ ] [Add PostGIS spatial index](docs/todos/16-add-postgis-spatial-index.md)
+- [x] [Return species, confidence, and source metadata](docs/todos/15-return-species-confidence-and-source-metadata.md)
+- [x] [Add PostGIS spatial index](docs/todos/16-add-postgis-spatial-index.md)
 
 ## Ingestion
 - [ ] [Define minimal `Source.fetch()` interface](docs/todos/17-define-minimal-source-fetch-interface.md)

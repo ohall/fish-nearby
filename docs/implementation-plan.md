@@ -18,10 +18,15 @@ proposal to finalize during Phase 1.
 
 ## Current state
 
-The repository currently contains product and technical documentation only.
-There is no application scaffold, package manifest, database migration, test
-suite, workflow, or deployment configuration. All implementation should
-therefore be treated as greenfield work.
+Phases 0 and 1 are implemented. The repository has an executable Next.js
+foundation, typed environment validation, CI, local Supabase/PostGIS setup, a
+checked-in spatial/provenance migration, pilot source/species seeds, shared Zod
+contracts, and server-only read repositories. Database integration coverage
+checks constraints, least-privilege roles, accepted-only projections, spatial
+behavior, and use of the matching geography-expression GiST index.
+
+Phase 2, the deterministic North Jersey ingestion slice, is the next delivery
+milestone. Public route handlers and the map remain unimplemented.
 
 ## MVP boundary
 

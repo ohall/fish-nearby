@@ -64,4 +64,12 @@ npm run test:e2e
 ```
 
 CI runs the same checks with an ephemeral PostGIS database and a mobile Chromium
-smoke test. No production credentials are used.
+smoke test. It also applies every migration, loads the seed, and runs the SQL
+integration suite in `tests/integration`. No production credentials are used.
+
+## Current delivery status
+
+Phases 0 and 1 are complete: the executable foundation, spatial/provenance
+schema, pilot source/species seed, shared runtime contracts, least-privilege
+public views, and server-only read repositories are implemented. The next
+milestone is the deterministic North Jersey ingestion slice in Phase 2.
