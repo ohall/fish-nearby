@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 
 export const metadata: Metadata = {
@@ -9,11 +10,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "light dark",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f7f4" },
-    { media: "(prefers-color-scheme: dark)", color: "#0c1714" },
-  ],
+  colorScheme: "light",
+  themeColor: "#f7f5ed",
 };
 
 export default function RootLayout({
