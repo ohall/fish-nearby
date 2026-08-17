@@ -1,9 +1,14 @@
 "use client";
 
 import type { FeatureCollection, Point } from "geojson";
-import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+} from "maplibre-gl";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { createLocalMapStyle, localMapLabels } from "./local-map-style";
 import type { PreviewWater } from "./preview-waters";
 
 const DEFAULT_CENTER: [number, number] = [-74.38, 41.07];
@@ -61,13 +66,6 @@ function toFeatureCollection(
   };
 }
 
-function getStyleUrl() {
-  const mapTilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  return mapTilerKey
-    ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`
-    : "https://demotiles.maplibre.org/style.json";
-}
-
 export function MapExperience({ waters }: { waters: PreviewWater[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -102,132 +100,150 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
     }
 
     let disposed = false;
+    let contextMarkers: MapLibreMarker[] = [];
 
     async function initializeMap() {
-      const maplibregl = await import("maplibre-gl");
-      if (disposed || !mapContainerRef.current) return;
+      try {
+        const maplibregl = await import("maplibre-gl");
+        if (disposed || !mapContainerRef.current) return;
 
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: getStyleUrl(),
-        center: DEFAULT_CENTER,
-        zoom: 9.15,
-        minZoom: 7,
-        maxZoom: 16,
-        attributionControl: false,
-        cooperativeGestures: true,
-      });
-
-      mapRef.current = map;
-      map.addControl(
-        new maplibregl.AttributionControl({ compact: true }),
-        "bottom-right",
-      );
-      map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
-        "bottom-right",
-      );
-
-      map.on("load", () => {
-        if (disposed) return;
-
-        map.addSource("preview-waters", {
-          type: "geojson",
-          data: toFeatureCollection(filteredWatersRef.current),
-        });
-        map.addLayer({
-          id: "preview-water-halo",
-          type: "circle",
-          source: "preview-waters",
-          paint: {
-            "circle-radius": 14,
-            "circle-color": "rgba(255, 255, 255, 0.8)",
-            "circle-blur": 0.2,
-          },
-        });
-        map.addLayer({
-          id: "preview-water-points",
-          type: "circle",
-          source: "preview-waters",
-          paint: {
-            "circle-radius": 8,
-            "circle-color": "#075f67",
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 2,
-          },
-        });
-        map.addLayer({
-          id: "preview-water-selected",
-          type: "circle",
-          source: "preview-waters",
-          filter: ["==", ["get", "id"], ""],
-          paint: {
-            "circle-radius": 15,
-            "circle-color": "rgba(0, 0, 0, 0)",
-            "circle-stroke-color": "#ee784b",
-            "circle-stroke-width": 4,
-          },
-        });
-        map.addSource("current-location", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-        map.addLayer({
-          id: "current-location-pulse",
-          type: "circle",
-          source: "current-location",
-          paint: {
-            "circle-radius": 14,
-            "circle-color": "rgba(238, 120, 75, 0.2)",
-            "circle-stroke-color": "rgba(238, 120, 75, 0.45)",
-            "circle-stroke-width": 1,
-          },
-        });
-        map.addLayer({
-          id: "current-location-point",
-          type: "circle",
-          source: "current-location",
-          paint: {
-            "circle-radius": 6,
-            "circle-color": "#ee784b",
-            "circle-stroke-color": "#ffffff",
-            "circle-stroke-width": 2,
-          },
+        const map = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style: createLocalMapStyle(),
+          center: DEFAULT_CENTER,
+          zoom: 9.15,
+          minZoom: 7,
+          maxZoom: 16,
+          attributionControl: false,
+          cooperativeGestures: true,
         });
 
-        map.on("click", "preview-water-points", (event) => {
-          const id = event.features?.[0]?.properties.id as string | undefined;
-          if (!id) return;
+        mapRef.current = map;
+        map.addControl(
+          new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: "Local preview map",
+          }),
+          "bottom-right",
+        );
+        map.addControl(
+          new maplibregl.NavigationControl({ showCompass: false }),
+          "bottom-right",
+        );
 
-          const water = waters.find((candidate) => candidate.id === id);
-          setSelectedId(id);
-          if (water) {
-            map.easeTo({
-              center: [water.longitude, water.latitude],
-              zoom: Math.max(map.getZoom(), 11),
-              duration: 650,
-            });
-          }
-        });
-        map.on("mouseenter", "preview-water-points", () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", "preview-water-points", () => {
-          map.getCanvas().style.cursor = "";
+        map.on("style.load", () => {
+          if (disposed) return;
+
+          contextMarkers = localMapLabels.map(({ name, coordinates }) => {
+            const label = document.createElement("span");
+            label.className = "contextMapLabel";
+            label.textContent = name;
+            return new maplibregl.Marker({ element: label, anchor: "center" })
+              .setLngLat(coordinates)
+              .addTo(map);
+          });
+
+          map.addSource("preview-waters", {
+            type: "geojson",
+            data: toFeatureCollection(filteredWatersRef.current),
+          });
+          map.addLayer({
+            id: "preview-water-halo",
+            type: "circle",
+            source: "preview-waters",
+            paint: {
+              "circle-radius": 14,
+              "circle-color": "rgba(255, 255, 255, 0.8)",
+              "circle-blur": 0.2,
+            },
+          });
+          map.addLayer({
+            id: "preview-water-points",
+            type: "circle",
+            source: "preview-waters",
+            paint: {
+              "circle-radius": 8,
+              "circle-color": "#075f67",
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2,
+            },
+          });
+          map.addLayer({
+            id: "preview-water-selected",
+            type: "circle",
+            source: "preview-waters",
+            filter: ["==", ["get", "id"], ""],
+            paint: {
+              "circle-radius": 15,
+              "circle-color": "rgba(0, 0, 0, 0)",
+              "circle-stroke-color": "#ee784b",
+              "circle-stroke-width": 4,
+            },
+          });
+          map.addSource("current-location", {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [] },
+          });
+          map.addLayer({
+            id: "current-location-pulse",
+            type: "circle",
+            source: "current-location",
+            paint: {
+              "circle-radius": 14,
+              "circle-color": "rgba(238, 120, 75, 0.2)",
+              "circle-stroke-color": "rgba(238, 120, 75, 0.45)",
+              "circle-stroke-width": 1,
+            },
+          });
+          map.addLayer({
+            id: "current-location-point",
+            type: "circle",
+            source: "current-location",
+            paint: {
+              "circle-radius": 6,
+              "circle-color": "#ee784b",
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2,
+            },
+          });
+
+          map.on("click", "preview-water-points", (event) => {
+            const id = event.features?.[0]?.properties.id as string | undefined;
+            if (!id) return;
+
+            const water = waters.find((candidate) => candidate.id === id);
+            setSelectedId(id);
+            if (water) {
+              map.easeTo({
+                center: [water.longitude, water.latitude],
+                zoom: Math.max(map.getZoom(), 11),
+                duration: 650,
+              });
+            }
+          });
+          map.on("mouseenter", "preview-water-points", () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", "preview-water-points", () => {
+            map.getCanvas().style.cursor = "";
+          });
+
+          setMapStatus("ready");
         });
 
-        setMapStatus("ready");
-      });
-
-      map.on("error", () => {
-        if (!map.isStyleLoaded()) setMapStatus("error");
-      });
+        map.on("error", () => {
+          if (!map.isStyleLoaded()) setMapStatus("error");
+        });
+      } catch {
+        if (!disposed) setMapStatus("error");
+      }
     }
 
     void initializeMap();
 
     return () => {
       disposed = true;
+      contextMarkers.forEach((marker) => marker.remove());
       mapRef.current?.remove();
       mapRef.current = null;
     };

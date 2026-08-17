@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("explores preview waters on a mobile map", async ({ page }) => {
   await page.goto("/");
 
+  await expect(page.getByText("Loading map…")).toBeHidden();
   await expect(page.getByRole("img", { name: "Fish Nearby" })).toBeVisible();
   await expect(page.getByRole("application")).toHaveAccessibleName(
     /interactive map of preview fishing waters/i,
