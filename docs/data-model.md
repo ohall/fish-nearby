@@ -64,22 +64,21 @@ browser never queries Supabase tables directly.
 ## Spatial query
 
 Nearby reads consistently cast the stored point to geography so radii and
-distances are measured in meters:
+distances are measured in meters. App-owned SQL functions hide whether the
+PostGIS extension is installed in Supabase's `extensions` schema or the
+standard image's `public` schema:
 
 ```sql
-extensions.st_dwithin(
-  geom::extensions.geography,
-  extensions.st_setsrid(
-    extensions.st_makepoint(:longitude, :latitude),
-    4326
-  )::extensions.geography,
+public.fish_nearby_dwithin(
+  geom,
+  public.fish_nearby_geography_point(:longitude, :latitude),
   :radius_meters
 )
 ```
 
-`water_body_geography_gist` indexes that exact `geom::geography` expression.
-The integration suite runs the public-view query through `EXPLAIN (FORMAT JSON)`
-and fails unless PostgreSQL selects that index.
+`water_body_geography_gist` indexes the inlined `geom::geography` expression.
+The integration suite runs the wrapper-based public-view query through
+`EXPLAIN (FORMAT JSON)` and fails unless PostgreSQL selects that index.
 
 ## Evidence semantics
 

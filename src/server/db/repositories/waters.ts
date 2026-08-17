@@ -58,28 +58,28 @@ export class WaterRepository {
 
     const rows = await this.query<NearbyWaterRow[]>`
       with search_origin as (
-        select extensions.st_setsrid(
-          extensions.st_makepoint(${input.longitude}, ${input.latitude}),
-          4326
-        )::extensions.geography as geog
+        select public.fish_nearby_geography_point(
+          ${input.longitude},
+          ${input.latitude}
+        ) as geog
       )
       select
         water.id,
         water.display_name as "displayName",
         water.type,
-        extensions.st_y(water.geom)::double precision as latitude,
-        extensions.st_x(water.geom)::double precision as longitude,
-        extensions.st_distance(
-          water.geom::extensions.geography,
+        public.fish_nearby_latitude(water.geom) as latitude,
+        public.fish_nearby_longitude(water.geom) as longitude,
+        public.fish_nearby_distance(
+          water.geom,
           origin.geog
-        )::double precision as "distanceMeters",
+        ) as "distanceMeters",
         count(distinct evidence.species_id)::integer as "acceptedSpeciesCount"
       from public.public_water_body as water
       cross join search_origin as origin
       left join public.public_water_body_evidence as evidence
         on evidence.water_body_id = water.id
-      where extensions.st_dwithin(
-        water.geom::extensions.geography,
+      where public.fish_nearby_dwithin(
+        water.geom,
         origin.geog,
         ${input.radiusMeters}
       )
@@ -112,8 +112,8 @@ export class WaterRepository {
         water.type,
         water.state,
         water.county,
-        extensions.st_y(water.geom)::double precision as latitude,
-        extensions.st_x(water.geom)::double precision as longitude,
+        public.fish_nearby_latitude(water.geom) as latitude,
+        public.fish_nearby_longitude(water.geom) as longitude,
         evidence.species_id as "speciesId",
         evidence.species_common_name as "speciesCommonName",
         evidence.species_scientific_name as "speciesScientificName",

@@ -65,7 +65,7 @@ values
     'lake',
     'NJ',
     'Passaic',
-    extensions.st_setsrid(extensions.st_makepoint(-74.251, 41.032), 4326)
+    public.fish_nearby_geometry_point(-74.251, 41.032)
   ),
   (
     '20000000-0000-4000-8000-000000000002',
@@ -74,7 +74,7 @@ values
     'lake',
     'NJ',
     'Passaic',
-    extensions.st_setsrid(extensions.st_makepoint(-74.270, 41.040), 4326)
+    public.fish_nearby_geometry_point(-74.270, 41.040)
   );
 
 insert into public.water_body_source (
@@ -158,9 +158,9 @@ begin
     raise exception 'expected 1 accepted evidence row, got %', public_evidence_count;
   end if;
 
-  select extensions.st_distance(
-    geom::extensions.geography,
-    extensions.st_setsrid(extensions.st_makepoint(-74.251, 41.032), 4326)::extensions.geography
+  select public.fish_nearby_distance(
+    geom,
+    public.fish_nearby_geography_point(-74.251, 41.032)
   )
   into measured_distance
   from public.public_water_body
@@ -206,7 +206,7 @@ begin
       'Invalid Point',
       'unknown',
       'NJ',
-      extensions.st_setsrid(extensions.st_makepoint(181, 41), 4326)
+      public.fish_nearby_geometry_point(181, 41)
     );
     raise exception 'out-of-range geometry was accepted';
   exception when check_violation then
@@ -225,12 +225,9 @@ begin
     explain (format json)
     select water.id
     from public.public_water_body as water
-    where extensions.st_dwithin(
-      water.geom::extensions.geography,
-      extensions.st_setsrid(
-        extensions.st_makepoint(-74.294, 41.031),
-        4326
-      )::extensions.geography,
+    where public.fish_nearby_dwithin(
+      water.geom,
+      public.fish_nearby_geography_point(-74.294, 41.031),
       25000
     )
   $query$
@@ -243,4 +240,3 @@ end
 $$;
 
 rollback;
-

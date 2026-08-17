@@ -1,3 +1,5 @@
+set search_path = public, extensions;
+
 create type public.water_body_type as enum
   ('lake', 'pond', 'reservoir', 'river', 'stream', 'unknown');
 
@@ -116,17 +118,83 @@ create table public.water_body (
   type public.water_body_type not null default 'unknown',
   state char(2) not null check (state ~ '^[A-Z]{2}$'),
   county text,
-  geom extensions.geometry(Point, 4326) not null,
+  geom geometry(Point, 4326) not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (state, normalized_name),
-  check (extensions.st_isvalid(geom)),
-  check (extensions.st_x(geom) between -180 and 180),
-  check (extensions.st_y(geom) between -90 and 90)
+  check (st_isvalid(geom)),
+  check (st_x(geom) between -180 and 180),
+  check (st_y(geom) between -90 and 90)
 );
 
+create function public.fish_nearby_geography(value geometry)
+returns geography
+language sql
+immutable
+strict
+parallel safe
+return value::geography;
+
+create function public.fish_nearby_geography_point(
+  longitude double precision,
+  latitude double precision
+)
+returns geography
+language sql
+immutable
+strict
+parallel safe
+return st_setsrid(st_makepoint(longitude, latitude), 4326)::geography;
+
+create function public.fish_nearby_geometry_point(
+  longitude double precision,
+  latitude double precision
+)
+returns geometry
+language sql
+immutable
+strict
+parallel safe
+return st_setsrid(st_makepoint(longitude, latitude), 4326);
+
+create function public.fish_nearby_longitude(value geometry)
+returns double precision
+language sql
+immutable
+strict
+parallel safe
+return st_x(value);
+
+create function public.fish_nearby_latitude(value geometry)
+returns double precision
+language sql
+immutable
+strict
+parallel safe
+return st_y(value);
+
+create function public.fish_nearby_distance(value geometry, origin geography)
+returns double precision
+language sql
+immutable
+strict
+parallel safe
+return st_distance(value::geography, origin);
+
+create function public.fish_nearby_dwithin(
+  value geometry,
+  origin geography,
+  radius_meters double precision
+)
+returns boolean
+language sql
+immutable
+strict
+parallel safe
+return st_dwithin(value::geography, origin, radius_meters);
+
 create index water_body_geography_gist
-  on public.water_body using gist ((geom::extensions.geography));
+  on public.water_body using gist ((geom::geography));
 create index water_body_state_normalized_name_idx
   on public.water_body (state, normalized_name);
 
@@ -283,6 +351,15 @@ revoke all on all tables in schema public from public;
 revoke all on all functions in schema public from public;
 
 grant usage on schema public, extensions to fish_nearby_read, fish_nearby_job;
+grant execute on function
+  public.fish_nearby_geography(geometry),
+  public.fish_nearby_geography_point(double precision, double precision),
+  public.fish_nearby_geometry_point(double precision, double precision),
+  public.fish_nearby_longitude(geometry),
+  public.fish_nearby_latitude(geometry),
+  public.fish_nearby_distance(geometry, geography),
+  public.fish_nearby_dwithin(geometry, geography, double precision)
+to fish_nearby_read, fish_nearby_job;
 grant select on public.public_water_body, public.public_water_body_evidence to fish_nearby_read;
 
 grant select, insert, update on
