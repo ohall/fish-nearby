@@ -71,6 +71,7 @@ function getStyleUrl() {
 export function MapExperience({ waters }: { waters: PreviewWater[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const filteredWatersRef = useRef(waters);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapStatus, setMapStatus] = useState<
@@ -132,7 +133,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
         map.addSource("preview-waters", {
           type: "geojson",
-          data: toFeatureCollection(waters),
+          data: toFeatureCollection(filteredWatersRef.current),
         });
         map.addLayer({
           id: "preview-water-halo",
@@ -233,6 +234,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
   }, [waters]);
 
   useEffect(() => {
+    filteredWatersRef.current = filteredWaters;
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
 
@@ -315,7 +317,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
       <header className="mapHeader">
         <div className="brandLockup">
-          <span className="brandMark">
+          <span className="brandMark" role="img" aria-label="Fish Nearby">
             <FishMark />
           </span>
           <span>
