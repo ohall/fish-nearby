@@ -3,7 +3,12 @@ import { expect, test } from "@playwright/test";
 test("explores preview waters on a mobile map", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/);
+  await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/, {
+    timeout: 20_000,
+  });
+  await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText(
+    "OpenFreeMap",
+  );
   await expect(page.getByRole("img", { name: "Fish Nearby" })).toBeVisible();
   await expect(page.getByRole("application")).toHaveAccessibleName(
     /interactive map of preview fishing waters/i,

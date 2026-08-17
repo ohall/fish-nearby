@@ -1,17 +1,13 @@
 "use client";
 
 import type { FeatureCollection, Point } from "geojson";
-import type {
-  GeoJSONSource,
-  Map as MapLibreMap,
-  Marker as MapLibreMarker,
-} from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { createLocalMapStyle, localMapLabels } from "./local-map-style";
 import type { PreviewWater } from "./preview-waters";
 
 const DEFAULT_CENTER: [number, number] = [-74.38, 41.07];
+const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 function SearchIcon() {
   return (
@@ -69,6 +65,7 @@ function toFeatureCollection(
 export function MapExperience({ waters }: { waters: PreviewWater[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const mapReadyRef = useRef(false);
   const filteredWatersRef = useRef(waters);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -100,7 +97,6 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
     }
 
     let disposed = false;
-    let contextMarkers: MapLibreMarker[] = [];
     let mapLoadTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function initializeMap() {
@@ -112,7 +108,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
         const map = new maplibregl.Map({
           container: mapContainerRef.current,
-          style: createLocalMapStyle(),
+          style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? DEFAULT_MAP_STYLE,
           center: DEFAULT_CENTER,
           zoom: 9.15,
           minZoom: 7,
@@ -122,12 +118,10 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         });
 
         mapRef.current = map;
-        mapLoadTimer = setTimeout(() => setMapStatus("error"), 8_000);
+        mapReadyRef.current = false;
+        mapLoadTimer = setTimeout(() => setMapStatus("error"), 15_000);
         map.addControl(
-          new maplibregl.AttributionControl({
-            compact: true,
-            customAttribution: "Local preview map",
-          }),
+          new maplibregl.AttributionControl({ compact: true }),
           "bottom-right",
         );
         map.addControl(
@@ -137,15 +131,6 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
         map.on("style.load", () => {
           if (disposed) return;
-
-          contextMarkers = localMapLabels.map(({ name, coordinates }) => {
-            const label = document.createElement("span");
-            label.className = "contextMapLabel";
-            label.textContent = name;
-            return new maplibregl.Marker({ element: label, anchor: "center" })
-              .setLngLat(coordinates)
-              .addTo(map);
-          });
 
           map.addSource("preview-waters", {
             type: "geojson",
@@ -235,13 +220,16 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
           map.once("idle", () => {
             if (disposed) return;
             clearTimeout(mapLoadTimer);
+            mapReadyRef.current = true;
             setMapStatus("ready");
           });
         });
 
         map.on("error", () => {
-          clearTimeout(mapLoadTimer);
-          setMapStatus("error");
+          if (!mapReadyRef.current) {
+            clearTimeout(mapLoadTimer);
+            setMapStatus("error");
+          }
         });
       } catch {
         if (!disposed) setMapStatus("error");
@@ -253,7 +241,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
     return () => {
       disposed = true;
       clearTimeout(mapLoadTimer);
-      contextMarkers.forEach((marker) => marker.remove());
+      mapReadyRef.current = false;
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -473,7 +461,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
       <div className={`mapState mapState-${mapStatus}`} aria-live="polite">
         {mapStatus === "loading" ? "Loading map…" : null}
         {mapStatus === "error"
-          ? "Basemap unavailable — preview list still works."
+          ? "Map tiles unavailable — preview list still works."
           : null}
         {mapStatus === "unavailable" ? "Map preview requires WebGL." : null}
       </div>
