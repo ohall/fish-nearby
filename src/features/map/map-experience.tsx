@@ -101,11 +101,14 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
     let disposed = false;
     let contextMarkers: MapLibreMarker[] = [];
+    let mapLoadTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function initializeMap() {
       try {
         const maplibregl = await import("maplibre-gl");
         if (disposed || !mapContainerRef.current) return;
+
+        maplibregl.setWorkerUrl("/vendor/maplibre/maplibre-gl-worker.mjs");
 
         const map = new maplibregl.Map({
           container: mapContainerRef.current,
@@ -119,6 +122,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         });
 
         mapRef.current = map;
+        mapLoadTimer = setTimeout(() => setMapStatus("error"), 8_000);
         map.addControl(
           new maplibregl.AttributionControl({
             compact: true,
@@ -228,11 +232,16 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             map.getCanvas().style.cursor = "";
           });
 
-          setMapStatus("ready");
+          map.once("idle", () => {
+            if (disposed) return;
+            clearTimeout(mapLoadTimer);
+            setMapStatus("ready");
+          });
         });
 
         map.on("error", () => {
-          if (!map.isStyleLoaded()) setMapStatus("error");
+          clearTimeout(mapLoadTimer);
+          setMapStatus("error");
         });
       } catch {
         if (!disposed) setMapStatus("error");
@@ -243,6 +252,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
     return () => {
       disposed = true;
+      clearTimeout(mapLoadTimer);
       contextMarkers.forEach((marker) => marker.remove());
       mapRef.current?.remove();
       mapRef.current = null;
