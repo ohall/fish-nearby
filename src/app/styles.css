@@ -120,23 +120,19 @@ button {
   box-shadow: 0 8px 28px rgba(19, 35, 30, 0.18);
 }
 
+.brandLockup::before {
+  width: 9.25rem;
+  height: 2.7rem;
+  background: url("/brand/horizontal-lockup-cream.png") center / contain
+    no-repeat;
+  content: "";
+}
+
 .speciesIcon {
   display: grid;
   place-items: center;
   color: var(--paper-strong);
   background: var(--teal);
-}
-
-.brandLockupImage {
-  display: block;
-  width: 9.25rem;
-  height: auto;
-}
-
-.brandIconImage {
-  display: none;
-  width: 2.7rem;
-  height: 2.7rem;
 }
 
 .mapSearch {
@@ -568,12 +564,10 @@ button {
     padding: 0.22rem;
   }
 
-  .brandLockupImage {
-    display: none;
-  }
-
-  .brandIconImage {
-    display: block;
+  .brandLockup::before {
+    width: 2.7rem;
+    height: 2.7rem;
+    background-image: url("/brand/app-icon-cream-180.png");
   }
 
   .mapSearch {
