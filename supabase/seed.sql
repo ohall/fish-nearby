@@ -30,6 +30,38 @@ on conflict (id) do update set
   attribution = excluded.attribution,
   license_notes = excluded.license_notes;
 
+insert into public.source (
+  id,
+  name,
+  agency,
+  upstream_url,
+  source_kind,
+  jurisdiction,
+  refresh_cadence,
+  attribution,
+  license_notes
+)
+values (
+  '00000000-0000-4000-8000-000000000002',
+  'Waterbody 2015 (NHD)',
+  'New Jersey Department of Environmental Protection',
+  'https://mapsdep.nj.gov/arcgis/rest/services/Features/Hydrography/MapServer/33',
+  'arcgis',
+  'NJ',
+  'yearly',
+  'New Jersey Department of Environmental Protection / USGS National Hydrography Dataset',
+  'Verify NJDEP and USGS NHD attribution and reuse terms before public launch.'
+)
+on conflict (id) do update set
+  name = excluded.name,
+  agency = excluded.agency,
+  upstream_url = excluded.upstream_url,
+  source_kind = excluded.source_kind,
+  jurisdiction = excluded.jurisdiction,
+  refresh_cadence = excluded.refresh_cadence,
+  attribution = excluded.attribution,
+  license_notes = excluded.license_notes;
+
 insert into public.species (id, common_name, normalized_common_name, scientific_name)
 values
   ('10000000-0000-4000-8000-000000000001', 'Largemouth Bass', 'largemouth bass', 'Micropterus salmoides'),

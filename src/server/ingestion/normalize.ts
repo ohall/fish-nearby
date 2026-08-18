@@ -22,6 +22,8 @@ export type SpeciesIndex = {
 export type NormalizedWaterBodyDraft = {
   sourceId: string;
   externalId: string;
+  /** artifact key of the raw import that backs this water body row */
+  rawArtifactKey: string;
   normalizedName: string;
   displayName: string;
   type: WaterBodyType;
@@ -84,6 +86,12 @@ function parseWaterKey(key: string): string | undefined {
 /** Parse a game-fish artifact key `layer-122:<externalId>:<row>`. */
 function parseGameFishKey(key: string): string | undefined {
   const match = /^layer-122:(.+):\d+$/.exec(key);
+  return match ? match[1] : undefined;
+}
+
+/** Parse an NHD waterbody artifact key `nhd-waterbody:<featureId>`. */
+function parseNhdKey(key: string): string | undefined {
+  const match = /^nhd-waterbody:(.+)$/.exec(key);
   return match ? match[1] : undefined;
 }
 
@@ -198,6 +206,7 @@ export function normalizeNjDepArtifacts(
     waterBodies.push({
       sourceId: waterArtifact.sourceId,
       externalId,
+      rawArtifactKey: waterArtifact.artifactKey,
       normalizedName,
       displayName,
       type,
@@ -247,4 +256,226 @@ export function normalizeNjDepArtifacts(
   }
 
   return { waterBodies, evidence, quarantined };
+}
+
+type NhdAttributes = {
+  GNIS_ID?: unknown;
+  GNIS_NAME?: unknown;
+  WATERBODY_NAME?: unknown;
+  FEATURE_NAME?: unknown;
+  FTYPE_DESCRIPTION?: unknown;
+};
+
+type Ring = [number, number][];
+
+/** Largest-|area| ring of an ESRI polygon, i.e. the main exterior ring. */
+function mainRing(rings: unknown): Ring | undefined {
+  if (!Array.isArray(rings)) return undefined;
+  let best: Ring | undefined;
+  let bestArea = 0;
+  for (const ring of rings) {
+    if (!Array.isArray(ring)) continue;
+    const points: Ring = [];
+    for (const point of ring) {
+      if (
+        Array.isArray(point) &&
+        typeof point[0] === "number" &&
+        typeof point[1] === "number" &&
+        Number.isFinite(point[0]) &&
+        Number.isFinite(point[1])
+      ) {
+        points.push([point[0], point[1]]);
+      }
+    }
+    if (points.length < 3) continue;
+    const area = Math.abs(ringArea(points));
+    if (area > bestArea) {
+      bestArea = area;
+      best = points;
+    }
+  }
+  return best;
+}
+
+/** Signed shoelace area of a ring in degree². Sign/scale are irrelevant here. */
+function ringArea(ring: Ring): number {
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    sum += ring[i]![0]! * ring[i + 1]![1]! - ring[i + 1]![0]! * ring[i]![1]!;
+  }
+  return sum / 2;
+}
+
+/** Area-weighted centroid of a ring; falls back to the vertex average. */
+function ringCentroid(ring: Ring): { latitude: number; longitude: number } {
+  let twiceArea = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [x0, y0] = ring[i]!;
+    const [x1, y1] = ring[i + 1]!;
+    const cross = x0 * y1 - x1 * y0;
+    twiceArea += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  }
+  if (twiceArea !== 0) {
+    const factor = 3 * twiceArea;
+    return { longitude: cx / factor, latitude: cy / factor };
+  }
+  let sx = 0;
+  let sy = 0;
+  for (const [x, y] of ring) {
+    sx += x;
+    sy += y;
+  }
+  return { longitude: sx / ring.length, latitude: sy / ring.length };
+}
+
+/**
+ * Normalize NHD waterbody polygons into water bodies.
+ *
+ * NHD splits one physical water into many polygons (e.g. Lake Hopatcong x13),
+ * so features are grouped by GNIS_ID into one water body each; features with a
+ * GNIS_NAME but no GNIS_ID fall back to their per-feature id. Distinct waters
+ * that share a name (e.g. the four NJ "Mud Pond"s) keep clean display names
+ * but get deterministic `name ~gnis-id` normalized names so they do not
+ * collapse under the (state, normalized_name) uniqueness constraint. This
+ * source carries no species data, so it yields no evidence.
+ */
+export function normalizeNhdArtifacts(
+  artifacts: SourceArtifact[],
+): NormalizeResult {
+  type Group = {
+    identity: string;
+    artifacts: SourceArtifact[];
+    area: number;
+  };
+  const groups = new Map<string, Group>();
+  const quarantined: string[] = [];
+
+  for (const artifact of artifacts) {
+    const featureId = parseNhdKey(artifact.artifactKey);
+    if (featureId === undefined) continue;
+
+    const payload = artifact.payload as {
+      attributes?: NhdAttributes;
+      geometry?: { rings?: unknown };
+    };
+    const attributes = payload.attributes ?? {};
+    const displayName =
+      asNonEmptyString(attributes.GNIS_NAME) ??
+      asNonEmptyString(attributes.WATERBODY_NAME) ??
+      asNonEmptyString(attributes.FEATURE_NAME);
+    const ring = mainRing(payload.geometry?.rings);
+
+    if (!displayName || !ring) {
+      quarantined.push(artifact.artifactKey);
+      continue;
+    }
+
+    const identity = asNonEmptyString(attributes.GNIS_ID) ?? featureId;
+    const group = groups.get(identity) ?? { identity, artifacts: [], area: 0 };
+    group.artifacts.push(artifact);
+    group.area += Math.abs(ringArea(ring));
+    groups.set(identity, group);
+  }
+
+  // Deterministic order: largest total area wins the bare normalized name.
+  const drafts = [...groups.values()].map((group) => {
+    const best = group.artifacts
+      .map((artifact) => ({
+        artifact,
+        ring: mainRing(
+          (artifact.payload as { geometry?: { rings?: unknown } }).geometry
+            ?.rings,
+        )!,
+      }))
+      .sort(
+        (a, b) => Math.abs(ringArea(b.ring)) - Math.abs(ringArea(a.ring)),
+      )[0]!;
+    const attributes =
+      (best.artifact.payload as { attributes?: NhdAttributes }).attributes ??
+      {};
+    const displayName = asNonEmptyString(attributes.GNIS_NAME)!;
+    const ftype = asNonEmptyString(attributes.FTYPE_DESCRIPTION);
+    const inferred = inferType(displayName);
+    const type: WaterBodyType =
+      ftype === "Reservoir"
+        ? "reservoir"
+        : inferred !== "unknown"
+          ? inferred
+          : "lake";
+    const { longitude, latitude } = ringCentroid(best.ring);
+    const { confidenceTier, reviewState } = deriveConfidence(
+      displayName,
+      latitude,
+      longitude,
+    );
+
+    return {
+      identity: group.identity,
+      area: group.area,
+      draft: {
+        sourceId: best.artifact.sourceId,
+        externalId: group.identity,
+        rawArtifactKey: best.artifact.artifactKey,
+        normalizedName: normalizeName(displayName),
+        displayName,
+        type,
+        state: "NJ",
+        latitude,
+        longitude,
+        confidenceTier,
+        reviewState,
+      } satisfies NormalizedWaterBodyDraft,
+    };
+  });
+
+  const byName = new Map<string, typeof drafts>();
+  for (const entry of drafts) {
+    const list = byName.get(entry.draft.normalizedName) ?? [];
+    list.push(entry);
+    byName.set(entry.draft.normalizedName, list);
+  }
+  for (const list of byName.values()) {
+    list.sort(
+      (a, b) => b.area - a.area || a.identity.localeCompare(b.identity),
+    );
+    for (const [index, entry] of list.entries()) {
+      if (index > 0) {
+        entry.draft.normalizedName = `${entry.draft.normalizedName} ~${entry.identity}`;
+      }
+    }
+  }
+
+  return {
+    waterBodies: drafts.map((entry) => entry.draft),
+    evidence: [],
+    quarantined,
+  };
+}
+
+/**
+ * Source-agnostic entry point: routes artifacts to the right deterministic
+ * normalizer by artifact-key scheme and merges the results.
+ */
+export function normalizeArtifacts(
+  artifacts: SourceArtifact[],
+  speciesIndex: SpeciesIndex,
+): NormalizeResult {
+  const gfch = artifacts.filter(
+    (a) =>
+      parseWaterKey(a.artifactKey) !== undefined ||
+      parseGameFishKey(a.artifactKey) !== undefined,
+  );
+  const nhd = artifacts.filter((a) => parseNhdKey(a.artifactKey) !== undefined);
+
+  const a = normalizeNjDepArtifacts(gfch, speciesIndex);
+  const b = normalizeNhdArtifacts(nhd);
+  return {
+    waterBodies: [...a.waterBodies, ...b.waterBodies],
+    evidence: [...a.evidence, ...b.evidence],
+    quarantined: [...a.quarantined, ...b.quarantined],
+  };
 }

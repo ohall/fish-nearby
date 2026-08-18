@@ -160,7 +160,7 @@ export async function publishRun(
     const waterIdByExternal = new Map<string, string>();
 
     for (const water of waterBodies) {
-      const rawImportId = rawIdByKey.get(`layer-121:${water.externalId}`);
+      const rawImportId = rawIdByKey.get(water.rawArtifactKey);
       if (!rawImportId) {
         throw new Error(`missing raw import for water ${water.externalId}`);
       }
@@ -179,8 +179,11 @@ export async function publishRun(
         )
         on conflict (state, normalized_name) do update set
           display_name = excluded.display_name,
-          type = excluded.type,
-          county = excluded.county,
+          type = case
+            when excluded.type = 'unknown' then water_body.type
+            else excluded.type
+          end,
+          county = coalesce(excluded.county, water_body.county),
           geom = excluded.geom,
           updated_at = now()
         returning id
