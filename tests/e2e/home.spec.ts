@@ -41,13 +41,24 @@ test("explores database waters on a mobile map", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("updates the water rail when the map viewport changes", async ({ page }) => {
+test("updates the water rail when the map viewport changes", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
 
   await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/, {
     timeout: 20_000,
   });
+
+  const brand = page.getByRole("img", { name: "Fish Nearby" });
+  await expect(brand).toBeVisible();
+  const brandBounds = await brand.boundingBox();
+
+  await expect(brand.locator("img")).toHaveCount(0);
+  expect(brandBounds).not.toBeNull();
+  expect(brandBounds?.width).toBeLessThan(250);
+  expect(brandBounds?.height).toBeLessThan(100);
 
   const cards = page.locator(".waterRail .waterCard");
   const initialCount = await cards.count();

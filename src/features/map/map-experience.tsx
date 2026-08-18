@@ -2,7 +2,6 @@
 
 import type { FeatureCollection, Point } from "geojson";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
-import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { MapWater } from "@/contracts";
@@ -388,22 +387,6 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
       <header className="mapHeader">
         <div className="brandLockup" role="img" aria-label="Fish Nearby">
           <span className="srOnly">Fish Nearby</span>
-          <Image
-            className="brandLockupImage"
-            src="/brand/horizontal-lockup-cream.png"
-            width={500}
-            height={242}
-            alt=""
-            priority
-          />
-          <Image
-            className="brandIconImage"
-            src="/brand/app-icon-cream-180.png"
-            width={180}
-            height={180}
-            alt=""
-            priority
-          />
         </div>
 
         <form className="mapSearch" role="search" onSubmit={handleSearchSubmit}>
