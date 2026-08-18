@@ -1,5 +1,5 @@
 import type { PgQueryClient } from "../db/pg.ts";
-import { normalizeNjDepArtifacts } from "./normalize.ts";
+import { normalizeArtifacts } from "./normalize.ts";
 import {
   createRun,
   failRun,
@@ -43,7 +43,7 @@ export async function runIngestion(
     const stored = await storeRawArtifacts(sql, runId, artifacts);
 
     const speciesIndex = await loadSpeciesIndex(sql);
-    const { waterBodies, evidence, quarantined } = normalizeNjDepArtifacts(
+    const { waterBodies, evidence, quarantined } = normalizeArtifacts(
       artifacts,
       speciesIndex,
     );
