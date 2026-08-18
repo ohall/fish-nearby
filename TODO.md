@@ -26,11 +26,11 @@ order and measurable release gates. Each item below links to its design note.
 - [x] [Add PostGIS spatial index](docs/todos/16-add-postgis-spatial-index.md)
 
 ## Ingestion
-- [ ] [Define minimal `Source.fetch()` interface](docs/todos/17-define-minimal-source-fetch-interface.md)
-- [ ] [Build first NJ public-data source adapter](docs/todos/18-build-first-nj-public-data-source-adapter.md)
-- [ ] [Store raw source artifacts before normalization](docs/todos/19-store-raw-source-artifacts-before-normalization.md)
-- [ ] [Hash artifacts to avoid duplicate processing](docs/todos/20-hash-artifacts-to-avoid-duplicate-processing.md)
-- [ ] [Make ingestion idempotent](docs/todos/21-make-ingestion-idempotent.md)
+- [x] [Define minimal `Source.fetch()` interface](docs/todos/17-define-minimal-source-fetch-interface.md)
+- [x] [Build first NJ public-data source adapter](docs/todos/18-build-first-nj-public-data-source-adapter.md)
+- [x] [Store raw source artifacts before normalization](docs/todos/19-store-raw-source-artifacts-before-normalization.md)
+- [x] [Hash artifacts to avoid duplicate processing](docs/todos/20-hash-artifacts-to-avoid-duplicate-processing.md)
+- [x] [Make ingestion idempotent](docs/todos/21-make-ingestion-idempotent.md)
 
 ## OpenRouter normalization
 - [ ] [Structured-output client](docs/todos/22-structured-output-client.md)
