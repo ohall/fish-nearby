@@ -9,6 +9,8 @@ export default defineConfig([
     ".next/**",
     "coverage/**",
     "playwright-report/**",
+    "public/vendor/**",
+    "supabase/.temp/**",
     "test-results/**",
   ]),
 ]);

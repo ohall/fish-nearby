@@ -3,7 +3,9 @@ import "server-only";
 import {
   nearbyWaterSearchRequestSchema,
   nearbyWaterSearchResponseSchema,
+  mapWaterListResponseSchema,
   waterDetailResponseSchema,
+  type MapWaterListResponse,
   type NearbyWaterSearchRequest,
   type NearbyWaterSearchResponse,
   type WaterDetailResponse,
@@ -41,6 +43,10 @@ type EvidenceRow = {
   sourceUrl: string | null;
 };
 
+type MapWaterRow = EvidenceRow & {
+  distanceMeters: number;
+};
+
 export class WaterNotFoundError extends Error {
   constructor(readonly waterBodyId: string) {
     super("Water body not found");
@@ -50,6 +56,94 @@ export class WaterNotFoundError extends Error {
 
 export class WaterRepository {
   constructor(private readonly query: QueryClient) {}
+
+  async listForMap(
+    request: NearbyWaterSearchRequest,
+  ): Promise<MapWaterListResponse> {
+    const input = nearbyWaterSearchRequestSchema.parse(request);
+
+    const rows = await this.query<MapWaterRow[]>`
+      with search_origin as (
+        select public.fish_nearby_geography_point(
+          ${input.longitude},
+          ${input.latitude}
+        ) as geog
+      ),
+      candidates as (
+        select
+          water.id as "waterBodyId",
+          water.display_name as "displayName",
+          water.type,
+          water.state,
+          water.county,
+          public.fish_nearby_latitude(water.geom) as latitude,
+          public.fish_nearby_longitude(water.geom) as longitude,
+          public.fish_nearby_distance(
+            water.geom,
+            origin.geog
+          ) as "distanceMeters"
+        from public.public_water_body as water
+        cross join search_origin as origin
+        where public.fish_nearby_dwithin(
+          water.geom,
+          origin.geog,
+          ${input.radiusMeters}
+        )
+        order by "distanceMeters", lower(water.display_name)
+        limit 200
+      )
+      select
+        water.*,
+        evidence.species_id as "speciesId",
+        evidence.species_common_name as "speciesCommonName",
+        evidence.species_scientific_name as "speciesScientificName",
+        evidence.id as "evidenceId",
+        evidence.evidence_type as "evidenceType",
+        evidence.observed_on::text as "observedOn",
+        evidence.published_on::text as "publishedOn",
+        evidence.confidence_tier as "confidenceTier",
+        evidence.source_label as "sourceLabel",
+        evidence.source_url as "sourceUrl"
+      from candidates as water
+      left join public.public_water_body_evidence as evidence
+        on evidence.water_body_id = water."waterBodyId"
+      order by
+        water."distanceMeters",
+        lower(water."displayName"),
+        evidence.species_common_name nulls last,
+        evidence.id
+    `;
+
+    const grouped = new Map<
+      string,
+      { first: MapWaterRow; evidenceRows: EvidenceRow[] }
+    >();
+
+    for (const row of rows) {
+      const water = grouped.get(row.waterBodyId) ?? {
+        first: row,
+        evidenceRows: [],
+      };
+      water.evidenceRows.push(row);
+      grouped.set(row.waterBodyId, water);
+    }
+
+    return mapWaterListResponseSchema.parse({
+      waters: [...grouped.values()].map(({ first, evidenceRows }) => ({
+        id: first.waterBodyId,
+        displayName: first.displayName,
+        type: first.type,
+        state: first.state,
+        ...(first.county ? { county: first.county } : {}),
+        representativePoint: {
+          latitude: first.latitude,
+          longitude: first.longitude,
+        },
+        distanceMeters: first.distanceMeters,
+        species: groupSpecies(evidenceRows),
+      })),
+    });
+  }
 
   async searchNearby(
     request: NearbyWaterSearchRequest,
@@ -140,57 +234,6 @@ export class WaterRepository {
       throw new WaterNotFoundError(id);
     }
 
-    const groupedSpecies = new Map<
-      string,
-      {
-        id: string;
-        commonName: string;
-        scientificName?: string;
-        evidence: Array<{
-          id: string;
-          evidenceType: string;
-          sourceLabel: string;
-          sourceUrl?: string;
-          observedOn?: string;
-          publishedOn?: string;
-          confidenceTier: string;
-        }>;
-      }
-    >();
-
-    for (const row of rows) {
-      if (
-        !row.speciesId ||
-        !row.speciesCommonName ||
-        !row.evidenceId ||
-        !row.evidenceType ||
-        !row.confidenceTier ||
-        !row.sourceLabel
-      ) {
-        continue;
-      }
-
-      const species = groupedSpecies.get(row.speciesId) ?? {
-        id: row.speciesId,
-        commonName: row.speciesCommonName,
-        ...(row.speciesScientificName
-          ? { scientificName: row.speciesScientificName }
-          : {}),
-        evidence: [],
-      };
-
-      species.evidence.push({
-        id: row.evidenceId,
-        evidenceType: row.evidenceType,
-        sourceLabel: row.sourceLabel,
-        ...(row.sourceUrl ? { sourceUrl: row.sourceUrl } : {}),
-        ...(row.observedOn ? { observedOn: row.observedOn } : {}),
-        ...(row.publishedOn ? { publishedOn: row.publishedOn } : {}),
-        confidenceTier: row.confidenceTier,
-      });
-      groupedSpecies.set(row.speciesId, species);
-    }
-
     return waterDetailResponseSchema.parse({
       id: first.waterBodyId,
       displayName: first.displayName,
@@ -201,7 +244,62 @@ export class WaterRepository {
         latitude: first.latitude,
         longitude: first.longitude,
       },
-      species: [...groupedSpecies.values()],
+      species: groupSpecies(rows),
     });
   }
+}
+
+function groupSpecies(rows: EvidenceRow[]) {
+  const groupedSpecies = new Map<
+    string,
+    {
+      id: string;
+      commonName: string;
+      scientificName?: string;
+      evidence: Array<{
+        id: string;
+        evidenceType: string;
+        sourceLabel: string;
+        sourceUrl?: string;
+        observedOn?: string;
+        publishedOn?: string;
+        confidenceTier: string;
+      }>;
+    }
+  >();
+
+  for (const row of rows) {
+    if (
+      !row.speciesId ||
+      !row.speciesCommonName ||
+      !row.evidenceId ||
+      !row.evidenceType ||
+      !row.confidenceTier ||
+      !row.sourceLabel
+    ) {
+      continue;
+    }
+
+    const species = groupedSpecies.get(row.speciesId) ?? {
+      id: row.speciesId,
+      commonName: row.speciesCommonName,
+      ...(row.speciesScientificName
+        ? { scientificName: row.speciesScientificName }
+        : {}),
+      evidence: [],
+    };
+
+    species.evidence.push({
+      id: row.evidenceId,
+      evidenceType: row.evidenceType,
+      sourceLabel: row.sourceLabel,
+      ...(row.sourceUrl ? { sourceUrl: row.sourceUrl } : {}),
+      ...(row.observedOn ? { observedOn: row.observedOn } : {}),
+      ...(row.publishedOn ? { publishedOn: row.publishedOn } : {}),
+      confidenceTier: row.confidenceTier,
+    });
+    groupedSpecies.set(row.speciesId, species);
+  }
+
+  return [...groupedSpecies.values()];
 }

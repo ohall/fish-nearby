@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("explores preview waters on a mobile map", async ({ page }) => {
+test("explores database waters on a mobile map", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/, {
@@ -11,7 +11,7 @@ test("explores preview waters on a mobile map", async ({ page }) => {
   );
   await expect(page.getByRole("img", { name: "Fish Nearby" })).toBeVisible();
   await expect(page.getByRole("application")).toHaveAccessibleName(
-    /interactive map of preview fishing waters/i,
+    /interactive map of fishing waters/i,
   );
   await expect(page.getByRole("searchbox")).toBeVisible();
 
@@ -28,9 +28,9 @@ test("explores preview waters on a mobile map", async ({ page }) => {
     page.getByRole("heading", { name: "Lake Hopatcong" }),
   ).toBeVisible();
   await expect(
-    page.getByText(/fixture content and are not yet verified/i),
+    page.getByText(/accepted NJDEP records loaded from the local database/i),
   ).toBeVisible();
-  await expect(page.getByText("Hybrid striped bass")).toBeVisible();
+  await expect(page.getByText("Walleye")).toBeVisible();
 
   await page.getByRole("button", { name: "Close water details" }).click();
   await expect(

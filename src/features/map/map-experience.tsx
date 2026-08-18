@@ -5,7 +5,7 @@ import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import type { PreviewWater } from "./preview-waters";
+import type { MapWater } from "@/contracts";
 
 const DEFAULT_CENTER: [number, number] = [-74.38, 41.07];
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -48,7 +48,7 @@ function FishMark() {
 }
 
 function toFeatureCollection(
-  waters: PreviewWater[],
+  waters: MapWater[],
 ): FeatureCollection<Point, { id: string; name: string }> {
   return {
     type: "FeatureCollection",
@@ -56,14 +56,26 @@ function toFeatureCollection(
       type: "Feature",
       geometry: {
         type: "Point",
-        coordinates: [water.longitude, water.latitude],
+        coordinates: [
+          water.representativePoint.longitude,
+          water.representativePoint.latitude,
+        ],
       },
       properties: { id: water.id, name: water.displayName },
     })),
   };
 }
 
-export function MapExperience({ waters }: { waters: PreviewWater[] }) {
+function formatDistance(distanceMeters: number) {
+  const miles = distanceMeters / 1_609.344;
+  return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} mi away`;
+}
+
+function formatEvidenceType(evidenceType: string) {
+  return evidenceType.replaceAll("_", " ");
+}
+
+export function MapExperience({ waters }: { waters: MapWater[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const mapReadyRef = useRef(false);
@@ -80,7 +92,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
     if (!normalizedQuery) return waters;
 
     return waters.filter((water) =>
-      `${water.displayName} ${water.county} ${water.type}`
+      `${water.displayName} ${water.county ?? ""} ${water.type} ${water.species.map((species) => species.commonName).join(" ")}`
         .toLocaleLowerCase()
         .includes(normalizedQuery),
     );
@@ -133,14 +145,14 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         map.on("style.load", () => {
           if (disposed) return;
 
-          map.addSource("preview-waters", {
+          map.addSource("waters", {
             type: "geojson",
             data: toFeatureCollection(filteredWatersRef.current),
           });
           map.addLayer({
-            id: "preview-water-halo",
+            id: "water-halo",
             type: "circle",
-            source: "preview-waters",
+            source: "waters",
             paint: {
               "circle-radius": 14,
               "circle-color": "rgba(255, 255, 255, 0.8)",
@@ -148,9 +160,9 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             },
           });
           map.addLayer({
-            id: "preview-water-points",
+            id: "water-points",
             type: "circle",
-            source: "preview-waters",
+            source: "waters",
             paint: {
               "circle-radius": 8,
               "circle-color": "#13231e",
@@ -159,9 +171,9 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             },
           });
           map.addLayer({
-            id: "preview-water-selected",
+            id: "water-selected",
             type: "circle",
-            source: "preview-waters",
+            source: "waters",
             filter: ["==", ["get", "id"], ""],
             paint: {
               "circle-radius": 15,
@@ -197,7 +209,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             },
           });
 
-          map.on("click", "preview-water-points", (event) => {
+          map.on("click", "water-points", (event) => {
             const id = event.features?.[0]?.properties.id as string | undefined;
             if (!id) return;
 
@@ -205,16 +217,19 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             setSelectedId(id);
             if (water) {
               map.easeTo({
-                center: [water.longitude, water.latitude],
+                center: [
+                  water.representativePoint.longitude,
+                  water.representativePoint.latitude,
+                ],
                 zoom: Math.max(map.getZoom(), 11),
                 duration: 650,
               });
             }
           });
-          map.on("mouseenter", "preview-water-points", () => {
+          map.on("mouseenter", "water-points", () => {
             map.getCanvas().style.cursor = "pointer";
           });
-          map.on("mouseleave", "preview-water-points", () => {
+          map.on("mouseleave", "water-points", () => {
             map.getCanvas().style.cursor = "";
           });
 
@@ -253,24 +268,23 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
 
-    const source = map.getSource("preview-waters") as GeoJSONSource | undefined;
+    const source = map.getSource("waters") as GeoJSONSource | undefined;
     source?.setData(toFeatureCollection(filteredWaters));
   }, [filteredWaters]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.getLayer("preview-water-selected")) return;
-    map.setFilter("preview-water-selected", [
-      "==",
-      ["get", "id"],
-      selectedId ?? "",
-    ]);
+    if (!map?.getLayer("water-selected")) return;
+    map.setFilter("water-selected", ["==", ["get", "id"], selectedId ?? ""]);
   }, [selectedId]);
 
-  function selectWater(water: PreviewWater) {
+  function selectWater(water: MapWater) {
     setSelectedId(water.id);
     mapRef.current?.easeTo({
-      center: [water.longitude, water.latitude],
+      center: [
+        water.representativePoint.longitude,
+        water.representativePoint.latitude,
+      ],
       zoom: Math.max(mapRef.current.getZoom(), 11),
       duration: 650,
     });
@@ -326,7 +340,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         ref={mapContainerRef}
         className="mapCanvas"
         role="application"
-        aria-label="Interactive map of preview fishing waters in North Jersey"
+        aria-label="Interactive map of fishing waters in North Jersey"
         data-testid="map-canvas"
       />
 
@@ -354,7 +368,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         <form className="mapSearch" role="search" onSubmit={handleSearchSubmit}>
           <SearchIcon />
           <label className="srOnly" htmlFor="water-search">
-            Search preview waters
+            Search fishing waters
           </label>
           <input
             id="water-search"
@@ -381,13 +395,13 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
         {locationMessage}
       </p>
 
-      <aside className="waterRail" aria-label="Preview waters">
+      <aside className="waterRail" aria-label="Fishing waters">
         <div className="waterRailHeading">
           <span>
             <small>Explore nearby</small>
-            <strong>{filteredWaters.length} preview waters</strong>
+            <strong>{filteredWaters.length} waters</strong>
           </span>
-          <span className="previewPill">Fixture data</span>
+          <span className="previewPill">Local database</span>
         </div>
 
         <div className="waterList">
@@ -405,7 +419,8 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
               <span className="waterCardCopy">
                 <strong>{water.displayName}</strong>
                 <small>
-                  {water.county} · {water.distanceLabel}
+                  {water.county ? `${water.county}, NJ` : "New Jersey"} ·{" "}
+                  {formatDistance(water.distanceMeters)}
                 </small>
               </span>
               <span className="speciesCount">
@@ -417,8 +432,8 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
           {filteredWaters.length === 0 ? (
             <div className="emptyResults">
-              <strong>No preview waters found</strong>
-              <span>Try another lake or county name.</span>
+              <strong>No waters found</strong>
+              <span>Try another water, county, or species name.</span>
             </div>
           ) : null}
         </div>
@@ -437,30 +452,46 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
 
           <div className="sheetKicker">
             <span>{selectedWater.type}</span>
-            <span>{selectedWater.distanceLabel}</span>
+            <span>{formatDistance(selectedWater.distanceMeters)}</span>
           </div>
           <h1 id="water-sheet-title">{selectedWater.displayName}</h1>
-          <p className="sheetLocation">{selectedWater.county}, New Jersey</p>
+          <p className="sheetLocation">
+            {selectedWater.county
+              ? `${selectedWater.county}, New Jersey`
+              : "New Jersey"}
+          </p>
 
           <div className="evidenceNotice">
-            <strong>UI preview</strong>
-            <span>
-              Species below are fixture content and are not yet verified.
-            </span>
+            <strong>Public source data</strong>
+            <span>Accepted NJDEP records loaded from the local database.</span>
           </div>
 
           <div className="speciesList">
             {selectedWater.species.map((species) => (
-              <div className="speciesRow" key={species.commonName}>
+              <div className="speciesRow" key={species.id}>
                 <span className="speciesIcon">
                   <FishMark />
                 </span>
                 <span>
                   <strong>{species.commonName}</strong>
-                  <small>{species.evidenceLabel}</small>
+                  <small>
+                    {species.evidence[0]?.sourceLabel} ·{" "}
+                    {formatEvidenceType(
+                      species.evidence[0]?.evidenceType ?? "public record",
+                    )}
+                  </small>
                 </span>
               </div>
             ))}
+
+            {selectedWater.species.length === 0 ? (
+              <div className="emptyResults">
+                <strong>No accepted species evidence yet</strong>
+                <span>
+                  This water is mapped, but has no published fish record.
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <p className="representativeNote">
@@ -472,7 +503,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
       <div className={`mapState mapState-${mapStatus}`} aria-live="polite">
         {mapStatus === "loading" ? "Loading map…" : null}
         {mapStatus === "error"
-          ? "Map tiles unavailable — preview list still works."
+          ? "Map tiles unavailable — the database list still works."
           : null}
         {mapStatus === "unavailable" ? "Map preview requires WebGL." : null}
       </div>

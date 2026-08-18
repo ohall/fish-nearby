@@ -77,6 +77,14 @@ export const waterDetailResponseSchema = z.object({
   species: z.array(speciesEvidenceSchema),
 });
 
+export const mapWaterSchema = waterDetailResponseSchema.extend({
+  distanceMeters: z.number().nonnegative(),
+});
+
+export const mapWaterListResponseSchema = z.object({
+  waters: z.array(mapWaterSchema).max(200),
+});
+
 export type NearbyWaterSearchRequest = z.infer<
   typeof nearbyWaterSearchRequestSchema
 >;
@@ -84,3 +92,5 @@ export type NearbyWaterSearchResponse = z.infer<
   typeof nearbyWaterSearchResponseSchema
 >;
 export type WaterDetailResponse = z.infer<typeof waterDetailResponseSchema>;
+export type MapWater = z.infer<typeof mapWaterSchema>;
+export type MapWaterListResponse = z.infer<typeof mapWaterListResponseSchema>;
