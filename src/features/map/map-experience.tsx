@@ -2,6 +2,7 @@
 
 import type { FeatureCollection, Point } from "geojson";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PreviewWater } from "./preview-waters";
@@ -152,7 +153,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             source: "preview-waters",
             paint: {
               "circle-radius": 8,
-              "circle-color": "#075f67",
+              "circle-color": "#13231e",
               "circle-stroke-color": "#ffffff",
               "circle-stroke-width": 2,
             },
@@ -165,7 +166,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             paint: {
               "circle-radius": 15,
               "circle-color": "rgba(0, 0, 0, 0)",
-              "circle-stroke-color": "#ee784b",
+              "circle-stroke-color": "#e76f3c",
               "circle-stroke-width": 4,
             },
           });
@@ -190,7 +191,7 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
             source: "current-location",
             paint: {
               "circle-radius": 6,
-              "circle-color": "#ee784b",
+              "circle-color": "#e76f3c",
               "circle-stroke-color": "#ffffff",
               "circle-stroke-width": 2,
             },
@@ -330,14 +331,24 @@ export function MapExperience({ waters }: { waters: PreviewWater[] }) {
       />
 
       <header className="mapHeader">
-        <div className="brandLockup">
-          <span className="brandMark" role="img" aria-label="Fish Nearby">
-            <FishMark />
-          </span>
-          <span>
-            <strong>Fish Nearby</strong>
-            <small>North Jersey preview</small>
-          </span>
+        <div className="brandLockup" role="img" aria-label="Fish Nearby">
+          <span className="srOnly">Fish Nearby</span>
+          <Image
+            className="brandLockupImage"
+            src="/brand/horizontal-lockup-cream.png"
+            width={500}
+            height={242}
+            alt=""
+            priority
+          />
+          <Image
+            className="brandIconImage"
+            src="/brand/app-icon-cream-180.png"
+            width={180}
+            height={180}
+            alt=""
+            priority
+          />
         </div>
 
         <form className="mapSearch" role="search" onSubmit={handleSearchSubmit}>

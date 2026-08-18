@@ -1,14 +1,14 @@
 :root {
   color-scheme: light;
-  --ink: #112b2b;
-  --muted: #5f6f6c;
-  --paper: #f7f5ed;
-  --paper-strong: #fffef8;
-  --teal: #075f67;
-  --teal-dark: #064850;
-  --orange: #ee784b;
-  --line: rgba(17, 43, 43, 0.14);
-  --shadow: 0 18px 54px rgba(18, 45, 43, 0.17);
+  --ink: #13231e;
+  --muted: #61746b;
+  --paper: #edefe7;
+  --paper-strong: #faf8f2;
+  --teal: #13231e;
+  --teal-dark: #0b1713;
+  --orange: #e76f3c;
+  --line: rgba(19, 35, 30, 0.14);
+  --shadow: 0 18px 54px rgba(19, 35, 30, 0.17);
 }
 
 * {
@@ -23,7 +23,7 @@ body {
 body {
   margin: 0;
   overflow: hidden;
-  background: #d9e5df;
+  background: var(--paper);
   color: var(--ink);
   font-family: Arial, "Helvetica Neue", sans-serif;
 }
@@ -61,15 +61,16 @@ button {
       rgba(255, 255, 255, 0.8),
       transparent 30%
     ),
-    #dbe7e2;
+    var(--paper);
 }
 
 .mapCanvas {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(rgba(7, 95, 103, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(7, 95, 103, 0.04) 1px, transparent 1px), #dce8e3;
+    linear-gradient(rgba(19, 35, 30, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(19, 35, 30, 0.04) 1px, transparent 1px),
+    var(--paper);
   background-size: 3rem 3rem;
 }
 
@@ -79,7 +80,7 @@ button {
   z-index: 1;
   pointer-events: none;
   content: "";
-  box-shadow: inset 0 0 10rem rgba(4, 57, 62, 0.08);
+  box-shadow: inset 0 0 10rem rgba(19, 35, 30, 0.08);
 }
 
 .mapHeader {
@@ -100,40 +101,25 @@ button {
 .locationButton {
   pointer-events: auto;
   border: 1px solid rgba(255, 255, 255, 0.72);
-  background: rgba(255, 254, 248, 0.92);
-  box-shadow: 0 8px 28px rgba(18, 45, 43, 0.14);
+  background: rgba(250, 248, 242, 0.92);
+  box-shadow: 0 8px 28px rgba(19, 35, 30, 0.14);
   backdrop-filter: blur(18px);
 }
 
 .brandLockup {
-  display: flex;
-  gap: 0.72rem;
+  display: grid;
+  place-items: center;
   align-items: center;
   width: max-content;
-  padding: 0.6rem 1rem 0.6rem 0.65rem;
+  min-width: 10.75rem;
+  min-height: 3.25rem;
+  padding: 0.18rem 0.72rem;
   border-radius: 1rem;
+  border-color: rgba(167, 191, 166, 0.9);
+  background: var(--paper-strong);
+  box-shadow: 0 8px 28px rgba(19, 35, 30, 0.18);
 }
 
-.brandLockup > span:last-child {
-  display: grid;
-  gap: 0.05rem;
-}
-
-.brandLockup strong {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.06rem;
-  letter-spacing: -0.02em;
-}
-
-.brandLockup small {
-  color: var(--muted);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.brandMark,
 .speciesIcon {
   display: grid;
   place-items: center;
@@ -141,15 +127,16 @@ button {
   background: var(--teal);
 }
 
-.brandMark {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.75rem;
+.brandLockupImage {
+  display: block;
+  width: 9.25rem;
+  height: auto;
 }
 
-.brandMark svg {
-  width: 1.45rem;
-  fill: currentColor;
+.brandIconImage {
+  display: none;
+  width: 2.7rem;
+  height: 2.7rem;
 }
 
 .mapSearch {
@@ -165,10 +152,10 @@ button {
 }
 
 .mapSearch:focus-within {
-  border-color: rgba(7, 95, 103, 0.5);
+  border-color: rgba(19, 35, 30, 0.5);
   box-shadow:
-    0 0 0 3px rgba(7, 95, 103, 0.13),
-    0 8px 28px rgba(18, 45, 43, 0.14);
+    0 0 0 3px rgba(167, 191, 166, 0.42),
+    0 8px 28px rgba(19, 35, 30, 0.14);
 }
 
 .mapSearch svg,
@@ -198,7 +185,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 0.35rem;
   color: #71817d;
-  background: rgba(17, 43, 43, 0.04);
+  background: rgba(19, 35, 30, 0.04);
   font-family: inherit;
   font-size: 0.72rem;
 }
@@ -231,9 +218,9 @@ button {
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
   color: var(--muted);
-  background: rgba(255, 254, 248, 0.88);
+  background: rgba(250, 248, 242, 0.88);
   font-size: 0.72rem;
-  box-shadow: 0 4px 16px rgba(18, 45, 43, 0.1);
+  box-shadow: 0 4px 16px rgba(19, 35, 30, 0.1);
   opacity: 0;
   transform: translateY(-0.25rem);
   transition: 180ms ease;
@@ -256,7 +243,7 @@ button {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 1.25rem;
-  background: rgba(247, 245, 237, 0.91);
+  background: rgba(250, 248, 242, 0.91);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
@@ -296,7 +283,7 @@ button {
   padding: 0.36rem 0.5rem;
   border-radius: 999px;
   color: var(--teal);
-  background: rgba(7, 95, 103, 0.08);
+  background: rgba(167, 191, 166, 0.28);
   letter-spacing: 0.04em;
 }
 
@@ -318,7 +305,7 @@ button {
   border: 1px solid transparent;
   border-radius: 0.9rem;
   text-align: left;
-  background: rgba(255, 254, 248, 0.72);
+  background: rgba(250, 248, 242, 0.72);
   cursor: pointer;
   transition:
     border-color 160ms ease,
@@ -328,15 +315,15 @@ button {
 
 .waterCard:hover,
 .waterCard:focus-visible {
-  border-color: rgba(7, 95, 103, 0.25);
+  border-color: rgba(19, 35, 30, 0.25);
   outline: none;
   background: var(--paper-strong);
   transform: translateX(0.15rem);
 }
 
 .waterCard.isSelected {
-  border-color: rgba(7, 95, 103, 0.3);
-  background: #e7efea;
+  border-color: rgba(19, 35, 30, 0.3);
+  background: var(--paper);
 }
 
 .waterNumber {
@@ -406,7 +393,7 @@ button {
   padding: 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 1.35rem;
-  background: rgba(255, 254, 248, 0.96);
+  background: rgba(250, 248, 242, 0.96);
   box-shadow: var(--shadow);
   backdrop-filter: blur(22px);
   animation: sheetIn 240ms ease both;
@@ -429,7 +416,7 @@ button {
 .sheetClose:hover,
 .sheetClose:focus-visible {
   outline: none;
-  background: rgba(7, 95, 103, 0.08);
+  background: rgba(167, 191, 166, 0.28);
 }
 
 .sheetKicker {
@@ -467,8 +454,8 @@ button {
   margin: 1.2rem 0;
   padding: 0.8rem 0.9rem;
   border-left: 3px solid var(--orange);
-  color: #694331;
-  background: #fff0e7;
+  color: #753219;
+  background: #fff0e8;
   font-size: 0.73rem;
   line-height: 1.4;
 }
@@ -497,7 +484,7 @@ button {
   height: 2.1rem;
   border-radius: 999px;
   color: var(--teal);
-  background: rgba(7, 95, 103, 0.09);
+  background: rgba(167, 191, 166, 0.3);
 }
 
 .speciesIcon svg {
@@ -534,8 +521,8 @@ button {
   padding: 0.45rem 0.72rem;
   border-radius: 999px;
   color: var(--muted);
-  background: rgba(255, 254, 248, 0.88);
-  box-shadow: 0 4px 16px rgba(18, 45, 43, 0.1);
+  background: rgba(250, 248, 242, 0.88);
+  box-shadow: 0 4px 16px rgba(19, 35, 30, 0.1);
   font-size: 0.72rem;
   transform: translateX(-50%);
 }
@@ -554,8 +541,8 @@ button {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 0.75rem !important;
-  background: rgba(255, 254, 248, 0.9) !important;
-  box-shadow: 0 6px 18px rgba(18, 45, 43, 0.12) !important;
+  background: rgba(250, 248, 242, 0.9) !important;
+  box-shadow: 0 6px 18px rgba(19, 35, 30, 0.12) !important;
   backdrop-filter: blur(12px);
 }
 
@@ -576,16 +563,17 @@ button {
   }
 
   .brandLockup {
-    padding: 0.48rem;
+    min-width: 3.35rem;
+    min-height: 3.35rem;
+    padding: 0.22rem;
   }
 
-  .brandLockup > span:last-child {
+  .brandLockupImage {
     display: none;
   }
 
-  .brandMark {
-    width: 2.35rem;
-    height: 2.35rem;
+  .brandIconImage {
+    display: block;
   }
 
   .mapSearch {
@@ -653,8 +641,8 @@ button {
     flex: 0 0 min(18rem, calc(100vw - 3rem));
     min-height: 4.75rem;
     border-color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 254, 248, 0.94);
-    box-shadow: 0 8px 28px rgba(18, 45, 43, 0.16);
+    background: rgba(250, 248, 242, 0.94);
+    box-shadow: 0 8px 28px rgba(19, 35, 30, 0.16);
     scroll-snap-align: center;
     backdrop-filter: blur(16px);
   }
@@ -669,7 +657,7 @@ button {
     margin: 0 0.65rem;
     padding: 1rem;
     border-radius: 0.9rem;
-    background: rgba(255, 254, 248, 0.94);
+    background: rgba(250, 248, 242, 0.94);
   }
 
   .waterSheet {
@@ -691,7 +679,7 @@ button {
     height: 0.25rem;
     margin: -0.45rem auto 0.8rem;
     border-radius: 999px;
-    background: rgba(17, 43, 43, 0.18);
+    background: rgba(19, 35, 30, 0.18);
     content: "";
   }
 
