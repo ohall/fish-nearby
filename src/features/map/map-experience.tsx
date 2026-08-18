@@ -79,15 +79,18 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const mapReadyRef = useRef(false);
-  const filteredWatersRef = useRef(waters);
+  const searchedWatersRef = useRef(waters);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [visibleWaterIds, setVisibleWaterIds] = useState<Set<string> | null>(
+    null,
+  );
   const [mapStatus, setMapStatus] = useState<
     "loading" | "ready" | "error" | "unavailable"
   >("loading");
   const [locationMessage, setLocationMessage] = useState("");
 
-  const filteredWaters = useMemo(() => {
+  const searchedWaters = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     if (!normalizedQuery) return waters;
 
@@ -98,6 +101,14 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
     );
   }, [query, waters]);
 
+  const visibleWaters = useMemo(
+    () =>
+      visibleWaterIds === null
+        ? []
+        : searchedWaters.filter((water) => visibleWaterIds.has(water.id)),
+    [searchedWaters, visibleWaterIds],
+  );
+
   const selectedWater = waters.find((water) => water.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -105,6 +116,7 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
       !mapContainerRef.current ||
       typeof WebGLRenderingContext === "undefined"
     ) {
+      setVisibleWaterIds(new Set(waters.map((water) => water.id)));
       setMapStatus("unavailable");
       return;
     }
@@ -132,7 +144,10 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
 
         mapRef.current = map;
         mapReadyRef.current = false;
-        mapLoadTimer = setTimeout(() => setMapStatus("error"), 15_000);
+        mapLoadTimer = setTimeout(() => {
+          setVisibleWaterIds(new Set(waters.map((water) => water.id)));
+          setMapStatus("error");
+        }, 15_000);
         map.addControl(
           new maplibregl.AttributionControl({ compact: true }),
           "bottom-right",
@@ -147,7 +162,7 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
 
           map.addSource("waters", {
             type: "geojson",
-            data: toFeatureCollection(filteredWatersRef.current),
+            data: toFeatureCollection(searchedWatersRef.current),
           });
           map.addLayer({
             id: "water-halo",
@@ -233,9 +248,31 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
             map.getCanvas().style.cursor = "";
           });
 
+          const updateVisibleWaters = () => {
+            if (disposed) return;
+
+            const bounds = map.getBounds();
+            setVisibleWaterIds(
+              new Set(
+                waters
+                  .filter((water) =>
+                    bounds.contains([
+                      water.representativePoint.longitude,
+                      water.representativePoint.latitude,
+                    ]),
+                  )
+                  .map((water) => water.id),
+              ),
+            );
+          };
+
+          map.on("moveend", updateVisibleWaters);
+          map.on("resize", updateVisibleWaters);
+
           map.once("idle", () => {
             if (disposed) return;
             clearTimeout(mapLoadTimer);
+            updateVisibleWaters();
             mapReadyRef.current = true;
             setMapStatus("ready");
           });
@@ -244,11 +281,15 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
         map.on("error", () => {
           if (!mapReadyRef.current) {
             clearTimeout(mapLoadTimer);
+            setVisibleWaterIds(new Set(waters.map((water) => water.id)));
             setMapStatus("error");
           }
         });
       } catch {
-        if (!disposed) setMapStatus("error");
+        if (!disposed) {
+          setVisibleWaterIds(new Set(waters.map((water) => water.id)));
+          setMapStatus("error");
+        }
       }
     }
 
@@ -264,13 +305,13 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
   }, [waters]);
 
   useEffect(() => {
-    filteredWatersRef.current = filteredWaters;
+    searchedWatersRef.current = searchedWaters;
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) return;
 
     const source = map.getSource("waters") as GeoJSONSource | undefined;
-    source?.setData(toFeatureCollection(filteredWaters));
-  }, [filteredWaters]);
+    source?.setData(toFeatureCollection(searchedWaters));
+  }, [searchedWaters]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -292,7 +333,7 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const firstMatch = filteredWaters[0];
+    const firstMatch = visibleWaters[0] ?? searchedWaters[0];
     if (firstMatch) selectWater(firstMatch);
   }
 
@@ -399,13 +440,16 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
         <div className="waterRailHeading">
           <span>
             <small>Explore nearby</small>
-            <strong>{filteredWaters.length} waters</strong>
+            <strong>
+              {visibleWaters.length}{" "}
+              {visibleWaters.length === 1 ? "water" : "waters"} in view
+            </strong>
           </span>
           <span className="previewPill">Local database</span>
         </div>
 
         <div className="waterList">
-          {filteredWaters.map((water, index) => (
+          {visibleWaters.map((water, index) => (
             <button
               className={`waterCard${selectedId === water.id ? " isSelected" : ""}`}
               key={water.id}
@@ -430,10 +474,17 @@ export function MapExperience({ waters }: { waters: MapWater[] }) {
             </button>
           ))}
 
-          {filteredWaters.length === 0 ? (
+          {searchedWaters.length === 0 ? (
             <div className="emptyResults">
               <strong>No waters found</strong>
               <span>Try another water, county, or species name.</span>
+            </div>
+          ) : null}
+
+          {searchedWaters.length > 0 && visibleWaters.length === 0 ? (
+            <div className="emptyResults">
+              <strong>No waters in view</strong>
+              <span>Pan or zoom the map to find waters.</span>
             </div>
           ) : null}
         </div>

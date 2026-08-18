@@ -6,6 +6,9 @@ test("explores database waters on a mobile map", async ({ page }) => {
   await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/, {
     timeout: 20_000,
   });
+  await expect(page.locator(".waterRailHeading strong")).toHaveText(
+    /\d+ waters? in view/,
+  );
   await expect(page.locator(".maplibregl-ctrl-attrib")).toContainText(
     "OpenFreeMap",
   );
@@ -16,6 +19,7 @@ test("explores database waters on a mobile map", async ({ page }) => {
   await expect(page.getByRole("searchbox")).toBeVisible();
 
   await page.getByRole("searchbox").fill("Hopatcong");
+  await page.getByRole("searchbox").press("Enter");
   await expect(
     page.getByRole("button", { name: /Lake Hopatcong/i }),
   ).toBeVisible();
@@ -23,7 +27,6 @@ test("explores database waters on a mobile map", async ({ page }) => {
     0,
   );
 
-  await page.getByRole("button", { name: /Lake Hopatcong/i }).click();
   await expect(
     page.getByRole("heading", { name: "Lake Hopatcong" }),
   ).toBeVisible();
@@ -36,4 +39,25 @@ test("explores database waters on a mobile map", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Lake Hopatcong" }),
   ).toHaveCount(0);
+});
+
+test("updates the water rail when the map viewport changes", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/");
+
+  await expect(page.locator(".mapState")).toHaveClass(/mapState-ready/, {
+    timeout: 20_000,
+  });
+
+  const cards = page.locator(".waterRail .waterCard");
+  const initialCount = await cards.count();
+  expect(initialCount).toBeGreaterThan(1);
+
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await page.getByRole("button", { name: "Zoom in" }).click();
+
+  await expect.poll(() => cards.count()).toBeLessThan(initialCount);
+  await expect(page.locator(".waterRailHeading strong")).toHaveText(
+    `${await cards.count()} waters in view`,
+  );
 });

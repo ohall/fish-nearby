@@ -52,7 +52,7 @@ describe("MapExperience", () => {
       "placeholder",
       "Search lakes, reservoirs…",
     );
-    expect(screen.getByText("2 waters")).toBeVisible();
+    expect(screen.getByText("2 waters in view")).toBeVisible();
     expect(screen.getByText("Local database")).toBeVisible();
   });
 
